@@ -5,8 +5,9 @@ import React, { createContext, useContext, useState } from 'react';
 export interface CreateEventDraft {
   eventCategory: string;   // e.g. 'wedding', 'sports', 'concert' …
   eventName: string;
-  eventDate: string;       // ISO date string
-  revealTime: string;      // ISO datetime string
+  eventDate: string;       // ISO date string  "YYYY-MM-DD"
+  eventEndTime: string;    // 24-h "HH:MM" — used to auto-compute organiser reveal
+  revealTime: string;      // ISO datetime string — set on reveal-time screen
   aesthetic: string;
   invitationCard: string;
   guestCount: number | null;
@@ -17,6 +18,7 @@ const EMPTY_DRAFT: CreateEventDraft = {
   eventCategory: '',
   eventName: '',
   eventDate: '',
+  eventEndTime: '',
   revealTime: '',
   aesthetic: '',
   invitationCard: '',
