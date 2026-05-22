@@ -22,6 +22,10 @@ import {
   PlayfairDisplay_700Bold,
 } from '@expo-google-fonts/playfair-display';
 import { supabase } from '../../supabase/client';
+import {
+  registerForPushNotifications,
+  scheduleRevealNotification,
+} from '../../shared/notifications';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -220,6 +224,26 @@ export default function GuestJoin() {
       setJoinedName(guestName.trim());
       setScreenState('joined');
       runJoinAnim();
+
+      // Non-blocking: register push token and schedule the reveal notification.
+      // Failures here are swallowed — the join itself already succeeded.
+      const participantId = participant.id;
+      const revealAt      = event.reveal_time;
+      const evTitle       = event.title;
+      ;(async () => {
+        try {
+          const token = await registerForPushNotifications();
+          if (token && participantId) {
+            await supabase
+              .from('participants')
+              .update({ push_token: token })
+              .eq('id', participantId);
+          }
+          if (revealAt) {
+            await scheduleRevealNotification(evTitle, new Date(revealAt));
+          }
+        } catch {/* non-critical */}
+      })();
     } catch {
       // allow retry — no toast needed, button stays enabled
     } finally {

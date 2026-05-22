@@ -19,6 +19,7 @@ create table if not exists public.users (
   phone       text,
   role        text        not null default 'guest'
                           check (role in ('host', 'organiser', 'guest', 'admin')),
+  push_token  text,                              -- Expo push notification token
   created_at  timestamptz not null default now()
 );
 
@@ -71,7 +72,8 @@ create table if not exists public.participants (
   upload_count int         not null default 0,   -- photos successfully uploaded
   shots_used   int         not null default 0,   -- shots taken (may exceed uploads)
   joined_at    timestamptz not null default now(),
-  payment_id   text                               -- Razorpay payment_id for paid tiers
+  payment_id   text,                              -- Razorpay payment_id for paid tiers
+  push_token   text                               -- Expo push token saved on join
 );
 
 create index if not exists participants_event_id_idx  on public.participants (event_id);

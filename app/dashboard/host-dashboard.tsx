@@ -28,6 +28,7 @@ import QRCode from 'react-native-qrcode-svg';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../../supabase/client';
+import { sendImmediateNotification } from '../../shared/notifications';
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -153,6 +154,43 @@ function StatCard({ icon, label, value, textColor }: {
       <Text style={[sc.statLabel, { color: textColor, opacity: 0.55 }]}>{label}</Text>
     </View>
   );
+}
+
+// ── Participant push dispatch ─────────────────────────────────────────────────
+// Fetches push tokens for every participant in the event and batch-sends a
+// reveal notification via the Expo Push API (100 tokens per request).
+
+async function sendRevealPushToParticipants(
+  eventId: string,
+  eventName: string,
+): Promise<void> {
+  const { data: rows } = await supabase
+    .from('participants')
+    .select('push_token')
+    .eq('event_id', eventId)
+    .not('push_token', 'is', null);
+
+  const tokens = (rows ?? [])
+    .map((r: any) => r.push_token as string)
+    .filter(t => t?.startsWith('ExponentPushToken'));
+
+  if (!tokens.length) return;
+
+  for (let i = 0; i < tokens.length; i += 100) {
+    const batch = tokens.slice(i, i + 100);
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method:  'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        batch.map(to => ({
+          to,
+          title: 'Your gallery is ready 🎞',
+          body:  `${eventName} — See every angle, every guest, one gallery.`,
+          data:  { type: 'reveal', eventName },
+        }))
+      ),
+    });
+  }
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -310,6 +348,15 @@ export default function HostDashboard() {
               const updated = { ...selectedEvent, status: 'revealed' as const };
               setSelectedEvent(updated);
               setEvents(prev => prev.map(e => e.id === selectedEvent.id ? updated : e));
+
+              // Local notification to the host.
+              await sendImmediateNotification(
+                'Film revealed! 🎉',
+                `Your ${selectedEvent.title} gallery is now live for all guests.`,
+              ).catch(() => {});
+
+              // Push to all participants — fire-and-forget, failures don't block UI.
+              sendRevealPushToParticipants(selectedEvent.id, selectedEvent.title).catch(() => {});
             } finally {
               setIsRevealing(false);
             }
