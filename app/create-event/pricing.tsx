@@ -26,6 +26,7 @@ import { supabase } from '../../supabase/client';
 import { useCreateEvent } from '../../shared/CreateEventContext';
 import { openRazorpayCheckout } from '../../shared/razorpay';
 import { REVENUE_SHARE, SHOT_LIMITS } from '../../shared/constants';
+import { generateShareCode, buildJoinURL, buildWhatsAppMessage } from '../../shared/utils';
 import type { UserRole } from '../../shared/types';
 
 // ── Theme ──────────────────────────────────────────────────────────────────
@@ -42,16 +43,8 @@ const DEFAULT_THEME = THEMES.midnight;
 const GOLD   = '#D4A853';
 const GOLD_T = 'rgba(212,168,83,0.08)';
 const H_PAD  = 24;
-const JOIN_BASE = 'https://join.guestfulclicks.com';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function generateShareCode(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
 
 function fmtPrice(n: number): string {
   return `₹${n.toLocaleString('en-IN')}`;
@@ -250,8 +243,8 @@ export default function PricingScreen() {
 
   // ── Share / QR actions ────────────────────────────────────────────────────
 
-  const shareUrl  = `${JOIN_BASE}/${shareCode}`;
-  const shareMsg  = `Join my Guestful Clicks film: ${shareUrl}`;
+  const shareUrl  = buildJoinURL(shareCode);
+  const shareMsg  = buildWhatsAppMessage(draft.eventName, shareCode);
 
   const handleShareLink = async () => {
     try {
@@ -409,7 +402,7 @@ export default function PricingScreen() {
           {/* QR card */}
           <View style={s.qrCard}>
             <QRCode
-              value={`${JOIN_BASE}/${shareCode}`}
+              value={buildJoinURL(shareCode)}
               size={220}
               getRef={(c: any) => { qrRef.current = c; }}
               backgroundColor="white"
