@@ -20,12 +20,12 @@ import {
   PlayfairDisplay_700Bold,
 } from '@expo-google-fonts/playfair-display';
 import QRCode from 'react-native-qrcode-svg';
-import RazorpayCheckout from 'react-native-razorpay';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../../supabase/client';
 import { useCreateEvent } from '../../shared/CreateEventContext';
-import { SHOT_LIMITS } from '../../shared/constants';
+import { openRazorpayCheckout } from '../../shared/razorpay';
+import { REVENUE_SHARE, SHOT_LIMITS } from '../../shared/constants';
 import type { UserRole } from '../../shared/types';
 
 // ── Theme ──────────────────────────────────────────────────────────────────
@@ -136,8 +136,9 @@ async function insertEvent(
   role: UserRole,
   userId: string,
   shareCode: string,
-) {
-  const { error } = await supabase.from('events').insert({
+  paymentId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.from('events').insert({
     title:           draft.eventName,
     type:            role === 'organiser' ? 'public' : 'private',
     host_id:         userId,
@@ -152,8 +153,10 @@ async function insertEvent(
     guest_count:     draft.guestCount,
     pricing_tier:    draft.pricingTier,
     event_category:  draft.eventCategory,
-  });
-  if (error) console.warn('Event insert:', error.message);
+    payment_id:      paymentId,
+  }).select('id').single();
+  if (error) { console.warn('Event insert:', error.message); return null; }
+  return (data as any).id as string;
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
@@ -206,29 +209,37 @@ export default function PricingScreen() {
     setPayLoading(true);
     setPayError(null);
 
-    const options = {
-      description:  'Event Film Creation',
-      currency:     'INR',
-      key:          'rzp_test_placeholder',
-      amount:       amount * 100,           // paise
-      name:         'Guestful Clicks',
-      prefill: {
-        email:   userEmail,
-        contact: '',
-        name:    userName,
-      },
-      theme: { color: GOLD },
-    };
-
     try {
-      await (RazorpayCheckout as any).open(options);
-      // ── Payment succeeded ────────────────────────────────────────────────
-      const code = generateShareCode();
+      const result = await openRazorpayCheckout({
+        amount:      amount,
+        description: 'Event Film Creation',
+        userName,
+        userEmail,
+        eventName:   draft.eventName,
+      });
+
+      // ── Payment succeeded ──────────────────────────────────────────────
+      const code    = generateShareCode();
+      const eventId = userId && role
+        ? await insertEvent(draft, role, userId, code, result.razorpay_payment_id)
+        : null;
+
+      // For organiser events: create a pending payout record
+      if (isOrganiser && eventId && userId) {
+        const payoutDate = new Date();
+        payoutDate.setDate(payoutDate.getDate() + REVENUE_SHARE.payoutWindowStartDay);
+        await supabase.from('payouts').insert({
+          event_id:       eventId,
+          organiser_id:   userId,
+          amount:         0,          // grows as participants pay
+          status:         'pending',
+          scheduled_date: payoutDate.toISOString().split('T')[0],
+        });
+      }
+
       setShareCode(code);
-      if (userId && role) await insertEvent(draft, role, userId, code);
       setScreenState('success');
     } catch (e: any) {
-      // code === 'PAYMENT_CANCELLED' means user dismissed — no error message
       if (e?.code !== 'PAYMENT_CANCELLED') {
         setPayError(e?.description ?? e?.message ?? 'Payment failed. Please try again.');
       }
@@ -331,10 +342,23 @@ export default function PricingScreen() {
             </View>
           </View>
 
-          {/* Error message */}
+          {/* Error card with retry */}
           {payError && (
             <View style={s.errorCard}>
               <Text style={[s.errorText, { fontFamily: serif }]}>⚠ {payError}</Text>
+              <TouchableOpacity
+                style={s.retryBtn}
+                onPress={handlePayNow}
+                activeOpacity={0.82}
+              >
+                <Text style={[s.retryBtnText, { fontFamily: serifBold }]}>Try Again →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => Linking.openURL('mailto:support@guestfulclicks.com')}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.supportLink, { fontFamily: serif }]}>Contact support</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -450,8 +474,11 @@ const s = StyleSheet.create({
   totalLabel: { fontSize: 14, opacity: 0.6, letterSpacing: 0.3 },
   totalAmount: { fontSize: 28, color: GOLD, letterSpacing: 0.3 },
 
-  errorCard: { backgroundColor: 'rgba(255,80,80,0.1)', borderWidth: 1, borderColor: 'rgba(255,80,80,0.3)', borderRadius: 10, padding: 12, marginBottom: 16 },
+  errorCard: { backgroundColor: 'rgba(255,80,80,0.1)', borderWidth: 1, borderColor: 'rgba(255,80,80,0.3)', borderRadius: 10, padding: 14, marginBottom: 16, gap: 10 },
   errorText: { color: '#FF6B6B', fontSize: 13, lineHeight: 19 },
+  retryBtn: { backgroundColor: GOLD, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  retryBtnText: { fontSize: 14, color: '#0C0904', letterSpacing: 0.5 },
+  supportLink: { fontSize: 12, color: '#FF6B6B', textDecorationLine: 'underline', textAlign: 'center', opacity: 0.7 },
 
   payBtn: { backgroundColor: GOLD, height: 56, borderRadius: 4, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   payBtnDisabled: { opacity: 0.7 },

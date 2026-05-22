@@ -3,49 +3,50 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
+  KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import {
   useFonts,
   PlayfairDisplay_400Regular,
   PlayfairDisplay_700Bold,
 } from '@expo-google-fonts/playfair-display';
-import RazorpayCheckout from 'react-native-razorpay';
 import { supabase } from '../../supabase/client';
+import { openRazorpayCheckout } from '../../shared/razorpay';
 import { PUBLIC_PARTICIPANT_PRICING, SHOT_LIMITS } from '../../shared/constants';
 
-// ── Theme ─────────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const THEMES: Record<string, { background: string; text: string }> = {
-  midnight: { background: '#0C0904', text: '#F0E8D5' },
-  graphite: { background: '#1A1A1A', text: '#FFFFFF'  },
-  navy:     { background: '#0D1B2A', text: '#E8F0FE'  },
-  forest:   { background: '#0D1F17', text: '#EAF5EE'  },
-  wine:     { background: '#1A0A0F', text: '#F5E8EC'  },
+const BG      = '#0C0904';
+const WW      = '#F0E8D5';
+const GOLD    = '#D4A853';
+const GOLD_T  = 'rgba(212,168,83,0.08)';
+const GOLD_B  = 'rgba(212,168,83,0.30)';
+const MUTED   = 'rgba(240,232,213,0.50)';
+const BORDER  = 'rgba(240,232,213,0.12)';
+const RED     = '#FF5252';
+const H_PAD   = 24;
+const PART_KEY = '@guestful_participant';
+
+// Tier descriptions shown under each card
+const TIER_DESCRIPTIONS: Record<number, string> = {
+  99:  'Share your 10 best moments',
+  199: 'More shots, more memories',
+  299: 'For the serious photographer',
+  499: 'The complete experience',
 };
-const THEME_KEY  = '@guestful_onboarding_theme';
-const PART_KEY   = '@guestful_participant';
-const DEFAULT_TH = THEMES.midnight;
-const GOLD       = '#D4A853';
-const GOLD_T     = 'rgba(212,168,83,0.08)';
-const GOLD_B     = 'rgba(212,168,83,0.3)';
-const H_PAD      = 24;
-const { width: SW } = Dimensions.get('window');
 
-// ── Shot tiers (public participant pricing) ───────────────────────────────────
-// Shape: { shots: number, price: number }[]
-const TIERS = PUBLIC_PARTICIPANT_PRICING as unknown as { shots: number; price: number }[];
-
-// Map shot count → SHOT_LIMITS key for storage
+// Map shot count → tier slug saved in DB
 const SHOT_KEY_MAP: Record<number, string> = {
   [SHOT_LIMITS.public99]:  'public99',
   [SHOT_LIMITS.public199]: 'public199',
@@ -53,27 +54,37 @@ const SHOT_KEY_MAP: Record<number, string> = {
   [SHOT_LIMITS.public499]: 'public499',
 };
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type ScreenState = 'loading' | 'select' | 'paying' | 'success';
+
+interface TierConfig {
+  shots:       number;
+  price:       number;
+  description: string;
+  is_popular:  boolean;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtINR(n: number): string {
   return `₹${n.toLocaleString('en-IN')}`;
 }
 
+function uuidv4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Logo({ textColor }: { textColor: string }) {
+function Logo() {
   return (
     <View style={sc.logoRow}>
       <View style={sc.logoDot} />
-      <Text style={[sc.logoText, { color: textColor }]}>GUESTFUL CLICKS</Text>
-    </View>
-  );
-}
-
-function CheckIcon({ size = 18 }: { size?: number }) {
-  return (
-    <View style={[sc.checkCircle, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={[sc.checkMark, { fontSize: size * 0.6, lineHeight: size }]}>✓</Text>
+      <Text style={sc.logoText}>GUESTFUL CLICKS</Text>
     </View>
   );
 }
@@ -81,19 +92,20 @@ function CheckIcon({ size = 18 }: { size?: number }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PaywallScreen() {
+  const { event_id: paramEventId } = useLocalSearchParams<{ event_id?: string }>();
+
   const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular, PlayfairDisplay_700Bold });
   const serif     = fontsLoaded ? 'PlayfairDisplay_400Regular' : undefined;
   const serifBold = fontsLoaded ? 'PlayfairDisplay_700Bold'    : undefined;
 
-  const [theme, setTheme]           = useState(DEFAULT_TH);
-  const [selectedTier, setSelectedTier] = useState<number>(1); // index into TIERS
-  const [screenState, setScreenState]   = useState<'select' | 'paying' | 'success'>('select');
-  const [payError, setPayError]         = useState<string | null>(null);
-
-  // Participant data from AsyncStorage
-  const [participant, setParticipant] = useState<{
-    id: string; name: string; event_id: string; shot_limit: number;
-  } | null>(null);
+  const [screenState, setScreenState] = useState<ScreenState>('loading');
+  const [eventId, setEventId]         = useState('');
+  const [eventName, setEventName]     = useState('');
+  const [tiers, setTiers]             = useState<TierConfig[]>([]);
+  const [selectedIdx, setSelectedIdx] = useState(1);   // default to 2nd tier
+  const [userName, setUserName]       = useState('');
+  const [userPhone, setUserPhone]     = useState('');
+  const [payError, setPayError]       = useState<string | null>(null);
 
   // Success animation
   const checkScale = useRef(new Animated.Value(0)).current;
@@ -104,85 +116,118 @@ export default function PaywallScreen() {
 
   useEffect(() => {
     (async () => {
-      const themeKey = await AsyncStorage.getItem(THEME_KEY);
-      if (themeKey && THEMES[themeKey]) setTheme(THEMES[themeKey]);
-
-      const raw = await AsyncStorage.getItem(PART_KEY);
-      if (raw) {
-        try { setParticipant(JSON.parse(raw)); } catch { /* ignore */ }
+      // Resolve event ID: prefer route param, fall back to AsyncStorage
+      let eid = paramEventId ?? '';
+      if (!eid) {
+        const raw = await AsyncStorage.getItem(PART_KEY);
+        if (raw) {
+          try { eid = JSON.parse(raw)?.event_id ?? ''; } catch { /* ignore */ }
+        }
       }
+      if (!eid) {
+        Alert.alert('No event found', 'Please scan the event QR code to join.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+        return;
+      }
+      setEventId(eid);
+
+      // Fetch event name
+      const { data: ev } = await supabase
+        .from('events').select('title').eq('id', eid).single();
+      if (ev) setEventName((ev as any).title ?? '');
+
+      // Fetch pricing config from Supabase; fall back to static constants
+      const { data: config } = await supabase
+        .from('pricing_config')
+        .select('shots, price, description, is_popular')
+        .eq('country', 'IN')
+        .order('price', { ascending: true });
+
+      if (config?.length) {
+        setTiers(config as TierConfig[]);
+      } else {
+        // Static fallback — mirrors PUBLIC_PARTICIPANT_PRICING
+        setTiers(
+          (PUBLIC_PARTICIPANT_PRICING as unknown as { shots: number; price: number }[]).map(t => ({
+            shots:       t.shots,
+            price:       t.price,
+            description: TIER_DESCRIPTIONS[t.price] ?? '',
+            is_popular:  t.price === 299,
+          }))
+        );
+      }
+
+      setScreenState('select');
     })();
-  }, []);
+  }, [paramEventId]);
+
+  // ── Validation ────────────────────────────────────────────────────────────
+
+  const phoneDigits = userPhone.replace(/\D/g, '');
+  const canPay      = userName.trim().length >= 2 && phoneDigits.length >= 10 && tiers.length > 0;
+  const activeTier  = tiers[selectedIdx] ?? tiers[0];
 
   // ── Success animation ────────────────────────────────────────────────────
 
-  function playSuccessAnimation() {
+  function playSuccess() {
     Animated.sequence([
-      Animated.spring(checkScale, {
-        toValue: 1,
-        tension: 80,
-        friction: 6,
-        useNativeDriver: true,
-      }),
-      Animated.timing(textOp, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(btnOp, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
+      Animated.spring(checkScale, { toValue: 1, tension: 80, friction: 6, useNativeDriver: true }),
+      Animated.timing(textOp,     { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(btnOp,      { toValue: 1, duration: 500, useNativeDriver: true }),
     ]).start();
   }
 
   // ── Payment ───────────────────────────────────────────────────────────────
 
-  const handlePurchase = async () => {
-    if (!participant) {
-      Alert.alert('Not joined', 'Please join an event first before purchasing shots.');
-      return;
-    }
-
-    const tier   = TIERS[selectedTier];
-    const amount = tier.price;
-
+  const handlePay = async () => {
+    if (!canPay || !activeTier || !eventId) return;
     setPayError(null);
     setScreenState('paying');
 
-    const options = {
-      description:  'Extra Shots — Guestful Clicks',
-      currency:     'INR',
-      key:          'rzp_test_placeholder',
-      amount:       amount * 100,
-      name:         'Guestful Clicks',
-      prefill: {
-        name: participant.name,
-      },
-      theme: { color: GOLD },
-    };
-
     try {
-      await (RazorpayCheckout as any).open(options);
+      const result = await openRazorpayCheckout({
+        amount:       activeTier.price,
+        description:  `${activeTier.shots} shots · ${eventName || 'Event'}`,
+        userName:     userName.trim(),
+        userEmail:    '',
+        eventName:    eventName,
+        prefillPhone: phoneDigits,
+      });
 
-      // Payment succeeded — update participant record
-      await supabase
+      // ── Payment succeeded — create participant record ──────────────────
+      const token = uuidv4();
+
+      const { data: newPart, error: insertErr } = await supabase
         .from('participants')
-        .update({
-          shot_limit:   tier.shots,
-          amount_paid:  amount,
-          tier:         SHOT_KEY_MAP[tier.shots] ?? 'free',
+        .insert({
+          event_id:     eventId,
+          name:         userName.trim(),
+          qr_token:     token,
+          amount_paid:  activeTier.price,
+          tier:         SHOT_KEY_MAP[activeTier.shots] ?? 'free',
+          shot_limit:   activeTier.shots,
+          upload_count: 0,
+          shots_used:   0,
+          joined_at:    new Date().toISOString(),
+          payment_id:   result.razorpay_payment_id,
         })
-        .eq('id', participant.id);
+        .select('id')
+        .single();
 
-      // Update AsyncStorage
-      const updated = { ...participant, shot_limit: tier.shots };
-      await AsyncStorage.setItem(PART_KEY, JSON.stringify(updated));
-      setParticipant(updated);
+      if (insertErr || !newPart) throw new Error(insertErr?.message ?? 'Could not create participant.');
+
+      // Persist to AsyncStorage so camera-screen can read it
+      await AsyncStorage.setItem(PART_KEY, JSON.stringify({
+        id:         (newPart as any).id,
+        event_id:   eventId,
+        name:       userName.trim(),
+        shot_limit: activeTier.shots,
+        qr_token:   token,
+      }));
 
       setScreenState('success');
-      playSuccessAnimation();
+      playSuccess();
     } catch (e: any) {
       setScreenState('select');
       if (e?.code !== 'PAYMENT_CANCELLED') {
@@ -193,31 +238,23 @@ export default function PaywallScreen() {
 
   // ── Guards ────────────────────────────────────────────────────────────────
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || screenState === 'loading') {
     return (
-      <View style={[sc.root, { backgroundColor: theme.background }, sc.center]}>
+      <View style={[sc.root, sc.center]}>
         <StatusBar barStyle="light-content" />
         <ActivityIndicator color={GOLD} size="large" />
       </View>
     );
   }
 
-  const BG    = theme.background;
-  const TXT   = theme.text;
-  const MUTED = `${TXT}88`;
-
-  const activeTier = TIERS[selectedTier];
-
   // ── STATE: PAYING ─────────────────────────────────────────────────────────
 
   if (screenState === 'paying') {
     return (
-      <View style={[sc.root, sc.center, { backgroundColor: BG }]}>
+      <View style={[sc.root, sc.center]}>
         <StatusBar barStyle="light-content" />
         <ActivityIndicator color={GOLD} size="large" />
-        <Text style={[sc.loadingText, { color: MUTED, fontFamily: serif, marginTop: 16 }]}>
-          Opening payment...
-        </Text>
+        <Text style={[sc.payingText, { fontFamily: serif }]}>Opening secure payment…</Text>
       </View>
     );
   }
@@ -226,22 +263,20 @@ export default function PaywallScreen() {
 
   if (screenState === 'success') {
     return (
-      <View style={[sc.root, sc.center, { backgroundColor: BG, paddingHorizontal: H_PAD }]}>
+      <View style={[sc.root, sc.center, { paddingHorizontal: H_PAD }]}>
         <StatusBar barStyle="light-content" />
 
         <Animated.View style={{ transform: [{ scale: checkScale }] }}>
-          <View style={sc.bigCheckCircle}>
+          <View style={sc.bigCheck}>
             <Text style={sc.bigCheckMark}>✓</Text>
           </View>
         </Animated.View>
 
         <Animated.View style={{ opacity: textOp, alignItems: 'center', marginTop: 28, gap: 10 }}>
-          <Text style={[sc.successTitle, { color: TXT, fontFamily: serifBold }]}>
-            Shots unlocked!
-          </Text>
-          <Text style={[sc.successBody, { color: MUTED, fontFamily: serif }]}>
-            You now have {participant?.shot_limit ?? activeTier.shots} shots to use.{'\n'}
-            Head back to the camera and keep shooting.
+          <Text style={[sc.successTitle, { fontFamily: serifBold }]}>You're all set!</Text>
+          <Text style={[sc.successBody, { fontFamily: serif }]}>
+            {activeTier?.shots ?? 0} shots unlocked.{'\n'}
+            Start capturing your memories now.
           </Text>
         </Animated.View>
 
@@ -251,7 +286,7 @@ export default function PaywallScreen() {
             onPress={() => router.replace('/camera/camera-screen' as any)}
             activeOpacity={0.85}
           >
-            <Text style={[sc.cameraBtnText, { fontFamily: serifBold }]}>Back to Camera →</Text>
+            <Text style={[sc.cameraBtnText, { fontFamily: serifBold }]}>Open Camera →</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -261,118 +296,84 @@ export default function PaywallScreen() {
   // ── STATE: SELECT TIER ────────────────────────────────────────────────────
 
   return (
-    <View style={[sc.root, { backgroundColor: BG }]}>
+    <KeyboardAvoidingView
+      style={sc.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <StatusBar barStyle="light-content" />
 
       {/* Header */}
       <View style={sc.header}>
         <TouchableOpacity
-          style={sc.closeBtn}
+          style={sc.backBtn}
           onPress={() => router.back()}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={[sc.closeText, { color: TXT }]}>✕</Text>
+          <Text style={sc.backArrow}>←</Text>
         </TouchableOpacity>
-        <View style={sc.headerCenter}><Logo textColor={TXT} /></View>
-        <View style={sc.closeBtn} />
+        <Logo />
+        <View style={sc.backBtn} />
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[sc.scroll, { paddingHorizontal: H_PAD }]}
+        contentContainerStyle={{ paddingHorizontal: H_PAD, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Heading */}
         <View style={sc.headingWrap}>
-          <Text style={[sc.heading, { color: TXT, fontFamily: serifBold }]}>
-            Get more{'\n'}shots.
+          <Text style={[sc.heading, { fontFamily: serifBold }]}>Publish your shots.</Text>
+          <Text style={[sc.subheading, { fontFamily: serif }]}>
+            Choose how many of your best shots to share with the world.
           </Text>
-          <Text style={[sc.subheading, { color: MUTED, fontFamily: serif }]}>
-            Choose a pack below and keep shooting.
-          </Text>
+          {eventName ? (
+            <Text style={[sc.eventTag, { fontFamily: serif }]}>{eventName}</Text>
+          ) : null}
         </View>
-
-        {/* Current shots banner */}
-        {participant && (
-          <View style={[sc.currentBanner, { borderColor: 'rgba(255,255,255,0.1)' }]}>
-            <Text style={[sc.currentBannerText, { color: MUTED, fontFamily: serif }]}>
-              You currently have{' '}
-              <Text style={{ color: GOLD, fontFamily: serifBold }}>
-                {participant.shot_limit} shot{participant.shot_limit !== 1 ? 's' : ''}
-              </Text>
-              {' '}remaining.
-            </Text>
-          </View>
-        )}
 
         {/* Tier cards */}
         <View style={sc.tiersWrap}>
-          {TIERS.map((tier, idx) => {
-            const isSelected = idx === selectedTier;
-            const isPopular  = idx === 2; // 25-shot ₹299 tier
+          {tiers.map((tier, idx) => {
+            const isSelected = idx === selectedIdx;
             return (
               <TouchableOpacity
                 key={tier.price}
                 style={[
                   sc.tierCard,
-                  { borderColor: isSelected ? GOLD : 'rgba(255,255,255,0.1)' },
-                  isSelected && sc.tierCardSelected,
+                  { borderColor: isSelected ? GOLD : BORDER },
+                  isSelected && { backgroundColor: GOLD_T },
                 ]}
-                onPress={() => setSelectedTier(idx)}
+                onPress={() => setSelectedIdx(idx)}
                 activeOpacity={0.82}
               >
-                {/* Popular badge */}
-                {isPopular && (
+                {tier.is_popular && (
                   <View style={sc.popularBadge}>
                     <Text style={[sc.popularBadgeText, { fontFamily: serifBold }]}>POPULAR</Text>
                   </View>
                 )}
 
-                <View style={sc.tierCardRow}>
-                  {/* Left: shot count + features */}
+                <View style={sc.tierRow}>
+                  {/* Shots */}
                   <View style={sc.tierLeft}>
-                    <Text style={[sc.tierShots, { color: isSelected ? GOLD : TXT, fontFamily: serifBold }]}>
+                    <Text style={[sc.tierShots, { color: isSelected ? GOLD : WW, fontFamily: serifBold }]}>
                       {tier.shots}
                     </Text>
-                    <Text style={[sc.tierShotsLabel, { color: MUTED, fontFamily: serif }]}>shots</Text>
+                    <Text style={[sc.tierShotsLabel, { fontFamily: serif }]}>shots</Text>
                   </View>
 
-                  {/* Middle: perks */}
-                  <View style={sc.tierMiddle}>
-                    <View style={sc.perkRow}>
-                      <CheckIcon size={16} />
-                      <Text style={[sc.perkText, { color: MUTED, fontFamily: serif }]}>
-                        {tier.shots} high-res captures
-                      </Text>
-                    </View>
-                    <View style={sc.perkRow}>
-                      <CheckIcon size={16} />
-                      <Text style={[sc.perkText, { color: MUTED, fontFamily: serif }]}>
-                        Film aesthetic overlays
-                      </Text>
-                    </View>
-                    {tier.shots >= SHOT_LIMITS.public299 && (
-                      <View style={sc.perkRow}>
-                        <CheckIcon size={16} />
-                        <Text style={[sc.perkText, { color: MUTED, fontFamily: serif }]}>
-                          Priority in gallery
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                  {/* Description */}
+                  <Text style={[sc.tierDesc, { fontFamily: serif, color: isSelected ? WW : MUTED }]}>
+                    {tier.description || TIER_DESCRIPTIONS[tier.price] || ''}
+                  </Text>
 
-                  {/* Right: price + select indicator */}
+                  {/* Price + radio */}
                   <View style={sc.tierRight}>
-                    <Text style={[sc.tierPrice, { color: isSelected ? GOLD : TXT, fontFamily: serifBold }]}>
+                    <Text style={[sc.tierPrice, { color: isSelected ? GOLD : WW, fontFamily: serifBold }]}>
                       {fmtINR(tier.price)}
                     </Text>
-                    <View
-                      style={[
-                        sc.radioOuter,
-                        { borderColor: isSelected ? GOLD : 'rgba(255,255,255,0.3)' },
-                      ]}
-                    >
-                      {isSelected && <View style={sc.radioInner} />}
+                    <View style={[sc.radio, { borderColor: isSelected ? GOLD : BORDER }]}>
+                      {isSelected && <View style={sc.radioFill} />}
                     </View>
                   </View>
                 </View>
@@ -381,39 +382,84 @@ export default function PaywallScreen() {
           })}
         </View>
 
-        {/* Error */}
-        {payError && (
-          <View style={sc.errorCard}>
-            <Text style={[sc.errorText, { fontFamily: serif }]}>⚠ {payError}</Text>
+        {/* Name + phone inputs */}
+        <View style={sc.inputsWrap}>
+          <View style={[sc.inputRow, { borderColor: BORDER }]}>
+            <Text style={sc.inputIcon}>👤</Text>
+            <TextInput
+              style={[sc.input, { fontFamily: serif }]}
+              placeholder="Your name"
+              placeholderTextColor={MUTED}
+              value={userName}
+              onChangeText={setUserName}
+              autoCapitalize="words"
+              returnKeyType="next"
+            />
           </View>
-        )}
 
-        {/* Value summary */}
-        <View style={[sc.summaryRow, { borderColor: 'rgba(255,255,255,0.08)' }]}>
-          <Text style={[sc.summaryLabel, { color: MUTED, fontFamily: serif }]}>Selected</Text>
-          <Text style={[sc.summaryValue, { color: TXT, fontFamily: serifBold }]}>
-            {activeTier.shots} shots for {fmtINR(activeTier.price)}
+          <View style={[sc.inputRow, { borderColor: BORDER }]}>
+            <Text style={sc.inputIcon}>📱</Text>
+            <TextInput
+              style={[sc.input, { fontFamily: serif }]}
+              placeholder="Mobile number"
+              placeholderTextColor={MUTED}
+              value={userPhone}
+              onChangeText={setUserPhone}
+              keyboardType="phone-pad"
+              returnKeyType="done"
+              maxLength={15}
+            />
+          </View>
+
+          <Text style={[sc.inputNote, { fontFamily: serif }]}>
+            Used to identify your uploads in the gallery only.
           </Text>
         </View>
 
-        {/* Purchase button */}
+        {/* Error card */}
+        {payError && (
+          <View style={sc.errorCard}>
+            <Text style={[sc.errorText, { fontFamily: serif }]}>⚠ {payError}</Text>
+            <TouchableOpacity style={sc.retryBtn} onPress={handlePay} activeOpacity={0.82}>
+              <Text style={[sc.retryBtnText, { fontFamily: serifBold }]}>Try Again →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => Linking.openURL('mailto:support@guestfulclicks.com')}
+              activeOpacity={0.7}
+            >
+              <Text style={[sc.supportLink, { fontFamily: serif }]}>Contact support</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Pay button */}
         <TouchableOpacity
-          style={sc.purchaseBtn}
-          onPress={handlePurchase}
+          style={[sc.payBtn, !canPay && sc.payBtnDisabled]}
+          onPress={handlePay}
+          disabled={!canPay}
           activeOpacity={0.85}
         >
-          <Text style={[sc.purchaseBtnText, { fontFamily: serifBold }]}>
-            Unlock {activeTier.shots} Shots · {fmtINR(activeTier.price)}
+          <Text style={[sc.payBtnText, { fontFamily: serifBold }]}>
+            {activeTier ? `Pay ${fmtINR(activeTier.price)} & Upload →` : 'Select a plan'}
           </Text>
         </TouchableOpacity>
 
-        <Text style={[sc.secureNote, { color: MUTED, fontFamily: serif }]}>
+        {/* Validation hint when button disabled */}
+        {!canPay && (userName.trim().length > 0 || userPhone.length > 0) && (
+          <Text style={[sc.validationHint, { fontFamily: serif }]}>
+            {userName.trim().length < 2
+              ? 'Enter your name (min 2 characters).'
+              : phoneDigits.length < 10
+              ? 'Enter a valid 10-digit mobile number.'
+              : ''}
+          </Text>
+        )}
+
+        <Text style={[sc.secureNote, { fontFamily: serif }]}>
           🔒 Secured by Razorpay · One-time payment
         </Text>
-
-        <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -422,132 +468,117 @@ export default function PaywallScreen() {
 const TOP_PAD = Platform.OS === 'ios' ? 52 : 36;
 
 const sc = StyleSheet.create({
-  root:   { flex: 1 },
+  root:   { flex: 1, backgroundColor: BG },
   center: { justifyContent: 'center', alignItems: 'center' },
 
-  // Logo
   logoRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  logoDot:  { width: 8, height: 8, borderRadius: 4, backgroundColor: GOLD },
-  logoText: { fontSize: 11, letterSpacing: 3, fontFamily: 'PlayfairDisplay_400Regular' },
+  logoDot:  { width: 7, height: 7, borderRadius: 4, backgroundColor: GOLD },
+  logoText: { fontSize: 11, letterSpacing: 3, color: WW, fontFamily: 'PlayfairDisplay_400Regular' },
 
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: TOP_PAD,
     paddingBottom: 12,
     paddingHorizontal: H_PAD,
   },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  closeBtn:  { width: 32, alignItems: 'center' },
-  closeText: { fontSize: 18, lineHeight: 24 },
-
-  scroll: { paddingTop: 8 },
+  backBtn:   { width: 32 },
+  backArrow: { fontSize: 22, color: WW },
 
   // Heading
-  headingWrap: { paddingVertical: 20, gap: 8 },
-  heading:     { fontSize: 32, lineHeight: 44, letterSpacing: 0.2 },
-  subheading:  { fontSize: 15, lineHeight: 22 },
+  headingWrap: { paddingTop: 8, paddingBottom: 24, gap: 8 },
+  heading:     { fontSize: 30, lineHeight: 40, color: WW, letterSpacing: 0.2 },
+  subheading:  { fontSize: 15, lineHeight: 22, color: MUTED },
+  eventTag:    { fontSize: 12, color: GOLD, letterSpacing: 0.5, marginTop: 2 },
 
-  // Current banner
-  currentBanner: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 20,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-  },
-  currentBannerText: { fontSize: 14, lineHeight: 20 },
-
-  // Tiers
-  tiersWrap: { gap: 12, marginBottom: 24 },
+  // Tier cards
+  tiersWrap: { gap: 10, marginBottom: 24 },
   tierCard: {
     borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 14,
+    padding: 16,
     backgroundColor: 'rgba(255,255,255,0.03)',
     overflow: 'hidden',
   },
-  tierCardSelected: { backgroundColor: GOLD_T },
-
   popularBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
+    position: 'absolute', top: 0, right: 0,
     backgroundColor: GOLD,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderBottomLeftRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 4,
+    borderBottomLeftRadius: 10,
   },
   popularBadgeText: { fontSize: 9, color: '#0C0904', letterSpacing: 1.2 },
 
-  tierCardRow:  { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  tierLeft:     { alignItems: 'center', minWidth: 50 },
-  tierShots:    { fontSize: 36, lineHeight: 42 },
-  tierShotsLabel: { fontSize: 11, letterSpacing: 0.5, marginTop: -2 },
-
-  tierMiddle: { flex: 1, gap: 6 },
-  perkRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  perkText:   { fontSize: 12, lineHeight: 17 },
-
-  tierRight:  { alignItems: 'center', gap: 8 },
-  tierPrice:  { fontSize: 18 },
-  radioOuter: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2,
+  tierRow:       { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  tierLeft:      { alignItems: 'center', minWidth: 44 },
+  tierShots:     { fontSize: 30, lineHeight: 36 },
+  tierShotsLabel: { fontSize: 10, color: MUTED, letterSpacing: 0.5, marginTop: -2 },
+  tierDesc:      { flex: 1, fontSize: 13, lineHeight: 18 },
+  tierRight:     { alignItems: 'center', gap: 6 },
+  tierPrice:     { fontSize: 17 },
+  radio: {
+    width: 20, height: 20, borderRadius: 10, borderWidth: 2,
     justifyContent: 'center', alignItems: 'center',
   },
-  radioInner: { width: 11, height: 11, borderRadius: 6, backgroundColor: GOLD },
+  radioFill: { width: 10, height: 10, borderRadius: 5, backgroundColor: GOLD },
 
-  // Check icon (inline perk ✓)
-  checkCircle: { backgroundColor: GOLD, justifyContent: 'center', alignItems: 'center' },
-  checkMark:   { color: '#0C0904', fontWeight: '700', textAlign: 'center' },
+  // Inputs
+  inputsWrap: { gap: 10, marginBottom: 24 },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 52,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    gap: 10,
+  },
+  inputIcon: { fontSize: 16 },
+  input:     { flex: 1, color: WW, fontSize: 15, height: 52 },
+  inputNote: { fontSize: 11, color: MUTED, lineHeight: 16, paddingHorizontal: 4 },
 
   // Error card
   errorCard: {
-    backgroundColor: 'rgba(255,80,80,0.1)',
-    borderWidth: 1, borderColor: 'rgba(255,80,80,0.3)',
-    borderRadius: 10, padding: 12, marginBottom: 16,
-  },
-  errorText: { color: '#FF6B6B', fontSize: 13, lineHeight: 19 },
-
-  // Summary row
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,82,82,0.35)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,82,82,0.08)',
+    padding: 14,
+    gap: 10,
     marginBottom: 16,
   },
-  summaryLabel: { fontSize: 13 },
-  summaryValue: { fontSize: 15 },
+  errorText:     { color: RED, fontSize: 13, lineHeight: 19 },
+  retryBtn:      { backgroundColor: GOLD, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  retryBtnText:  { fontSize: 14, color: '#0C0904', letterSpacing: 0.5 },
+  supportLink:   { fontSize: 12, color: RED, textDecorationLine: 'underline', textAlign: 'center', opacity: 0.75 },
 
-  // Purchase button
-  purchaseBtn: {
+  // Pay button
+  payBtn: {
     backgroundColor: GOLD,
     height: 56,
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
     ...Platform.select({
-      ios:     { shadowColor: GOLD, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+      ios:     { shadowColor: GOLD, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10 },
       android: { elevation: 6 },
       default: {},
     }),
   },
-  purchaseBtnText: { fontSize: 15, color: '#0C0904', letterSpacing: 1.4, textTransform: 'uppercase' },
+  payBtnDisabled: { opacity: 0.38 },
+  payBtnText:     { fontSize: 15, color: '#0C0904', letterSpacing: 1.4, textTransform: 'uppercase' },
 
-  secureNote: { textAlign: 'center', fontSize: 12, opacity: 0.4, letterSpacing: 0.3 },
+  validationHint: { fontSize: 12, color: 'rgba(255,82,82,0.7)', textAlign: 'center', marginBottom: 8 },
+  secureNote:     { fontSize: 12, color: MUTED, textAlign: 'center', opacity: 0.55, letterSpacing: 0.3, marginTop: 4 },
 
-  // Loading state
-  loadingText: { fontSize: 14, letterSpacing: 0.3 },
+  // Paying state
+  payingText: { fontSize: 14, color: MUTED, marginTop: 16, letterSpacing: 0.3 },
 
   // Success state
-  bigCheckCircle: {
-    width: 90, height: 90, borderRadius: 45,
+  bigCheck: {
+    width: 88, height: 88, borderRadius: 44,
     backgroundColor: GOLD,
     justifyContent: 'center', alignItems: 'center',
     ...Platform.select({
@@ -556,17 +587,13 @@ const sc = StyleSheet.create({
       default: {},
     }),
   },
-  bigCheckMark: { fontSize: 40, color: '#0C0904', fontWeight: '700', lineHeight: 48 },
-
-  successTitle: { fontSize: 28, lineHeight: 36, textAlign: 'center' },
-  successBody:  { fontSize: 15, lineHeight: 24, textAlign: 'center', opacity: 0.7 },
-
+  bigCheckMark:  { fontSize: 38, color: '#0C0904', fontWeight: '700', lineHeight: 46 },
+  successTitle:  { fontSize: 26, color: WW, lineHeight: 34, textAlign: 'center' },
+  successBody:   { fontSize: 15, color: MUTED, lineHeight: 24, textAlign: 'center' },
   cameraBtn: {
     backgroundColor: GOLD,
-    height: 56,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+    height: 56, borderRadius: 4,
+    justifyContent: 'center', alignItems: 'center',
   },
   cameraBtnText: { fontSize: 15, color: '#0C0904', letterSpacing: 1.4, textTransform: 'uppercase' },
 });
