@@ -30,7 +30,7 @@ export interface Permissions {
 export interface AdminUser {
   id: string;
   email: string;
-  name: string;
+  full_name: string;
   role: AdminRole;
   permissions: Permissions;
 }
@@ -129,16 +129,35 @@ export async function signInAdmin(email: string, password: string): Promise<Admi
     throw new Error('Sign in failed.');
   }
 
-  // Verify user is admin
-  const { data: userData, error: userError } = await supabase
+  const authUser = data.user;
+  console.log('Auth sign in succeeded. User ID:', authUser.id, '| Email:', authUser.email);
+
+  // Primary lookup: by auth UUID
+  let { data: userData, error: userError } = await supabase
     .from('users')
-    .select('id, name, email, role')
-    .eq('id', data.user.id)
+    .select('id, full_name, email, role')
+    .eq('id', authUser.id)
     .single();
 
+  console.log('users query by id →', { userData, userError });
+
+  // Fallback: RLS may block UUID lookup — try by email instead
   if (userError || !userData) {
-    await supabase.auth.signOut();
-    throw new Error('User record not found.');
+    console.warn('ID lookup failed, trying email fallback for:', authUser.email);
+    const { data: emailData, error: emailError } = await supabase
+      .from('users')
+      .select('id, full_name, email, role')
+      .eq('email', authUser.email)
+      .single();
+
+    console.log('users query by email →', { emailData, emailError });
+
+    if (emailError || !emailData) {
+      await supabase.auth.signOut();
+      throw new Error('User record not found.');
+    }
+
+    userData = emailData;
   }
 
   if (userData.role !== 'admin') {
@@ -147,19 +166,19 @@ export async function signInAdmin(email: string, password: string): Promise<Admi
   }
 
   // Get admin role and permissions
-  const permissions = await getAdminPermissions(data.user.id);
+  const permissions = await getAdminPermissions(authUser.id);
   const { data: adminData } = await supabase
     .from('admin_permissions')
     .select('admin_role')
-    .eq('user_id', data.user.id)
+    .eq('user_id', authUser.id)
     .single();
 
   const adminRole = (adminData?.admin_role as AdminRole) || 'support_admin';
 
   return {
-    id: data.user.id,
+    id: authUser.id,
     email: userData.email,
-    name: userData.name,
+    name: userData.full_name,
     role: adminRole,
     permissions,
   };
@@ -232,7 +251,7 @@ export async function getAdminUser(): Promise<AdminUser | null> {
 
   const { data: userData, error: userError } = await supabase
     .from('users')
-    .select('id, name, email, role')
+    .select('id, full_name, email, role')
     .eq('id', session.user.id)
     .single();
 
@@ -252,7 +271,7 @@ export async function getAdminUser(): Promise<AdminUser | null> {
   return {
     id: userData.id,
     email: userData.email,
-    name: userData.name,
+    name: userData.full_name,
     role: adminRole,
     permissions,
   };

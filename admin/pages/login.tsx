@@ -166,7 +166,7 @@ export default function AdminLogin() {
     try {
       const admin = await signInAdmin(email, password);
       localStorage.setItem('admin_user', JSON.stringify(admin));
-      navigate('/admin/events');
+      navigate('/admin/dashboard');
     } catch (err: any) {
       setError(err.message || 'Sign in failed.');
     } finally {

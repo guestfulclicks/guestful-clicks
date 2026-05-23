@@ -1,83 +1,66 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { supabase } from '../../supabase/client';
+import { supabase } from '../lib/supabase';
+import AdminLayout from '../components/admin-layout';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const BG     = '#0F0E0C';
-const CARD   = '#1A1714';
-const TXT    = '#F0E8D5';
-const MUTED  = 'rgba(240,232,213,0.5)';
-const BORDER = 'rgba(240,232,213,0.1)';
-const GOLD   = '#D4A853';
-const GREEN  = '#4CAF50';
-const H_PAD  = 24;
+const GOLD  = '#D4A853';
+const SERIF = '"Playfair Display", serif';
+const MONO  = '"DM Mono", monospace';
+const CARD  = { backgroundColor: '#FFFFFF', border: '1px solid #E8E3DC', borderRadius: '12px', padding: '20px 24px' };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type UserRole = 'host' | 'organiser' | 'guest' | 'admin';
+type UserRole   = 'host' | 'organiser' | 'guest' | 'admin';
+type FilterRole = UserRole | 'all';
 
 interface UserRow {
-  id: string;
-  full_name: string;
-  email: string;
-  role: UserRole;
-  created_at: string;
+  id:          string;
+  full_name:   string;
+  email:       string;
+  role:        UserRole;
+  created_at:  string;
   event_count: number;
 }
 
-type FilterRole = UserRole | 'all';
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string) {
   if (!iso) return '—';
-  const dt = new Date(iso);
-  const M  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${dt.getDate()} ${M[dt.getMonth()]} ${dt.getFullYear()}`;
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function roleColor(role: UserRole): string {
-  switch (role) {
-    case 'admin':     return '#FF6B6B';
-    case 'organiser': return GOLD;
-    case 'host':      return GREEN;
-    case 'guest':     return MUTED;
-  }
+const ROLE_COLORS: Record<string, { bg: string; color: string }> = {
+  admin:     { bg: '#FFE9E9', color: '#B71C1C' },
+  organiser: { bg: '#FFF7E0', color: '#7A5200' },
+  host:      { bg: '#E6F9EE', color: '#1A7A40' },
+  guest:     { bg: '#F0F0F0', color: '#666' },
+};
+
+function RolePill({ role }: { role: string }) {
+  const s = ROLE_COLORS[role] ?? { bg: '#F0F0F0', color: '#666' };
+  return <span style={{ ...s, fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '4px', textTransform: 'capitalize' as const }}>{role}</span>;
 }
 
-const AVATAR_COLORS = ['#C47C2A', '#6B4E3D', '#3D5A73', '#4A5E3D', '#6B3D5E'];
-function avatarColor(name: string): string {
-  return AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length];
+function Avatar({ name }: { name: string }) {
+  const initials = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  return (
+    <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: '#E8E3DC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', color: '#555', flexShrink: 0 }}>
+      {initials || '?'}
+    </div>
+  );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function AdminUsersPage() {
+export default function UsersPage() {
   const [users, setUsers]           = useState<UserRow[]>([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
   const [roleFilter, setRoleFilter] = useState<FilterRole>('all');
-
-  // Summary
-  const [totalHosts,      setTotalHosts]      = useState(0);
-  const [totalOrganisers, setTotalOrganisers] = useState(0);
-  const [totalGuests,     setTotalGuests]     = useState(0);
-
-  // ── Data load ────────────────────────────────────────────────────────────
+  const [totalHosts, setTotalHosts] = useState(0);
+  const [totalOrgs, setTotalOrgs]   = useState(0);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
-
     const { data: us } = await supabase
       .from('users')
       .select('id, full_name, email, role, created_at')
@@ -86,17 +69,15 @@ export default function AdminUsersPage() {
     if (!us?.length) { setUsers([]); setLoading(false); return; }
 
     const rows: UserRow[] = await Promise.all(
-      us.map(async u => {
+      us.map(async (u: any) => {
         const { count: ec } = await supabase
-          .from('events')
-          .select('*', { count: 'exact', head: true })
-          .eq('host_id', u.id);
+          .from('events').select('*', { count: 'exact', head: true }).eq('host_id', u.id);
         return {
           id:          u.id,
-          full_name:   u.full_name ?? 'Unknown',
-          email:       u.email ?? '',
-          role:        (u.role ?? 'guest') as UserRole,
-          created_at:  u.created_at ?? '',
+          full_name:   u.full_name ?? '—',
+          email:       u.email,
+          role:        u.role,
+          created_at:  u.created_at,
           event_count: ec ?? 0,
         };
       })
@@ -104,263 +85,103 @@ export default function AdminUsersPage() {
 
     setUsers(rows);
     setTotalHosts(rows.filter(r => r.role === 'host').length);
-    setTotalOrganisers(rows.filter(r => r.role === 'organiser').length);
-    setTotalGuests(rows.filter(r => r.role === 'guest').length);
+    setTotalOrgs(rows.filter(r => r.role === 'organiser').length);
     setLoading(false);
   }, []);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
-  // ── Role change ───────────────────────────────────────────────────────────
-
-  const handleRoleChange = (user: UserRow, newRole: UserRole) => {
-    if (newRole === user.role) return;
-    Alert.alert(
-      'Change role?',
-      `Set ${user.full_name} as ${newRole}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            await supabase.from('users').update({ role: newRole }).eq('id', user.id);
-            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: newRole } : u));
-          },
-        },
-      ]
-    );
-  };
-
-  // ── Filtered list ─────────────────────────────────────────────────────────
-
   const filtered = users.filter(u => {
-    const matchRole   = roleFilter === 'all' || u.role === roleFilter;
-    const matchSearch = !search ||
-      u.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
-    return matchRole && matchSearch;
+    if (roleFilter !== 'all' && u.role !== roleFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!u.full_name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
+    }
+    return true;
   });
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
-  const ROLE_TABS: FilterRole[] = ['all', 'host', 'organiser', 'guest', 'admin'];
-  const ROLE_OPTIONS: UserRole[] = ['host', 'organiser', 'guest', 'admin'];
+  const selectStyle = {
+    padding: '8px 12px', border: '1px solid #E8E3DC', borderRadius: '8px',
+    fontSize: '12px', fontFamily: MONO, color: '#333', backgroundColor: '#FFFFFF', cursor: 'pointer',
+  };
 
   return (
-    <View style={s.root}>
-      <StatusBar barStyle="light-content" />
+    <AdminLayout pageTitle="Users">
 
-      {/* Page header */}
-      <View style={[s.pageHeader, { borderBottomColor: BORDER }]}>
-        <View>
-          <Text style={s.pageTitle}>Users</Text>
-          <Text style={s.pageSubtitle}>{users.length} registered users</Text>
-        </View>
-        <TouchableOpacity style={s.refreshBtn} onPress={loadUsers}>
-          <Text style={s.refreshBtnText}>↻ Refresh</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Summary */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' as const }}>
+        {[
+          { label: 'Total Users',      value: users.length },
+          { label: 'Hosts',            value: totalHosts },
+          { label: 'Organisers',       value: totalOrgs },
+          { label: 'Guests',           value: users.filter(u => u.role === 'guest').length },
+        ].map(s => (
+          <div key={s.label} style={{ ...CARD, flex: 1, minWidth: '120px' }}>
+            <div style={{ fontFamily: SERIF, fontSize: '24px', fontWeight: '700', color: '#0C0904' }}>{s.value}</div>
+            <div style={{ fontSize: '11px', color: '#888', marginTop: '4px', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      {/* Filters */}
+      <div style={{ ...CARD, marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' as const, alignItems: 'center' }}>
+        <input
+          style={{ ...selectStyle, flex: 1, minWidth: '200px' }}
+          placeholder="Search by name or email…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select style={selectStyle} value={roleFilter} onChange={e => setRoleFilter(e.target.value as FilterRole)}>
+          <option value="all">All Roles</option>
+          <option value="host">Host</option>
+          <option value="organiser">Organiser</option>
+          <option value="guest">Guest</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button onClick={loadUsers} style={{ ...selectStyle, backgroundColor: GOLD, color: '#0C0904', border: 'none', fontWeight: '600' }}>
+          Refresh
+        </button>
+      </div>
 
-        {/* Summary cards */}
-        <View style={s.statsRow}>
-          <View style={[s.statCard, { borderColor: BORDER }]}>
-            <Text style={s.statLabel}>Hosts</Text>
-            <Text style={[s.statValue, { color: GREEN }]}>{totalHosts}</Text>
-          </View>
-          <View style={[s.statCard, { borderColor: BORDER }]}>
-            <Text style={s.statLabel}>Organisers</Text>
-            <Text style={[s.statValue, { color: GOLD }]}>{totalOrganisers}</Text>
-          </View>
-          <View style={[s.statCard, { borderColor: BORDER }]}>
-            <Text style={s.statLabel}>Guests</Text>
-            <Text style={[s.statValue, { color: TXT }]}>{totalGuests}</Text>
-          </View>
-        </View>
-
-        {/* Filters */}
-        <View style={[s.filtersWrap, { borderBottomColor: BORDER }]}>
-          <View style={[s.searchWrap, { borderColor: BORDER }]}>
-            <Text style={s.searchIcon}>🔍</Text>
-            <TextInput
-              style={s.searchInput}
-              placeholder="Search by name or email..."
-              placeholderTextColor={MUTED}
-              value={search}
-              onChangeText={setSearch}
-            />
-          </View>
-
-          <View style={s.filterTabs}>
-            {ROLE_TABS.map(tab => (
-              <TouchableOpacity
-                key={tab}
-                style={[
-                  s.filterTab,
-                  roleFilter === tab && s.filterTabActive,
-                  roleFilter === tab && tab !== 'all' && { borderColor: roleColor(tab as UserRole) },
-                ]}
-                onPress={() => setRoleFilter(tab)}
-              >
-                <Text style={[
-                  s.filterTabText,
-                  roleFilter === tab && { color: tab === 'all' ? GOLD : roleColor(tab as UserRole) },
-                ]}>
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Results */}
-        <View style={s.resultsRow}>
-          <Text style={s.resultsText}>{filtered.length} user{filtered.length !== 1 ? 's' : ''}</Text>
-        </View>
-
-        {/* User rows */}
-        <View style={[s.tableWrap, { borderColor: BORDER }]}>
-          {loading ? (
-            <View style={s.loadRow}>
-              <Text style={s.loadText}>Loading users...</Text>
-            </View>
-          ) : filtered.length === 0 ? (
-            <View style={s.loadRow}>
-              <Text style={s.loadText}>No users found.</Text>
-            </View>
-          ) : (
-            <>
-              {/* Table header */}
-              <View style={[s.tRow, s.tHeaderRow]}>
-                <Text style={[s.tCell, s.tHCell, { flex: 2 }]}>USER</Text>
-                <Text style={[s.tCell, s.tHCell, { flex: 1.5 }]}>EMAIL</Text>
-                <Text style={[s.tCell, s.tHCell, { width: 90 }]}>ROLE</Text>
-                <Text style={[s.tCell, s.tHCell, { width: 80 }]}>EVENTS</Text>
-                <Text style={[s.tCell, s.tHCell, { width: 110 }]}>JOINED</Text>
-                <Text style={[s.tCell, s.tHCell, { width: 180 }]}>CHANGE ROLE</Text>
-              </View>
-
-              {filtered.map((u, idx) => (
-                <View key={u.id} style={[s.tRow, idx % 2 === 1 && s.tAltRow]}>
-                  {/* Avatar + name */}
-                  <View style={[s.tCell, { flex: 2, gap: 10 }]}>
-                    <View style={[s.avatar, { backgroundColor: avatarColor(u.full_name) }]}>
-                      <Text style={s.avatarText}>{u.full_name.charAt(0).toUpperCase()}</Text>
-                    </View>
-                    <Text style={s.tBodyCell} numberOfLines={1}>{u.full_name}</Text>
-                  </View>
-
-                  <Text style={[s.tCell, s.tBodyCell, { flex: 1.5 }]} numberOfLines={1}>
-                    {u.email}
-                  </Text>
-
-                  {/* Role badge */}
-                  <View style={[s.tCell, { width: 90 }]}>
-                    <View style={[s.roleBadge, { borderColor: roleColor(u.role) }]}>
-                      <Text style={[s.roleBadgeText, { color: roleColor(u.role) }]}>
-                        {u.role.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={[s.tCell, s.tBodyCell, { width: 80, textAlign: 'center' }]}>
-                    {u.event_count}
-                  </Text>
-                  <Text style={[s.tCell, s.tBodyCell, { width: 110 }]}>{fmtDate(u.created_at)}</Text>
-
-                  {/* Role change buttons */}
-                  <View style={[s.tCell, { width: 180, gap: 4, flexWrap: 'wrap' }]}>
-                    {ROLE_OPTIONS.filter(r => r !== u.role).map(r => (
-                      <TouchableOpacity
-                        key={r}
-                        style={[s.roleBtn, { borderColor: roleColor(r) }]}
-                        onPress={() => handleRoleChange(u, r)}
-                      >
-                        <Text style={[s.roleBtnText, { color: roleColor(r) }]}>
-                          {r}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+      {/* Table */}
+      <div style={{ ...CARD, padding: 0, overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center' as const, color: '#888', fontSize: '13px' }}>Loading users…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center' as const, color: '#888', fontSize: '13px' }}>No users found.</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: '12px', fontFamily: MONO }}>
+            <thead style={{ backgroundColor: '#F5F3EF', borderBottom: '1px solid #E8E3DC' }}>
+              <tr>
+                {['User', 'Email', 'Role', 'Events', 'Joined'].map(h => (
+                  <th key={h} style={{ textAlign: 'left' as const, padding: '12px 16px', fontWeight: '600', color: '#555', letterSpacing: '0.5px', textTransform: 'uppercase' as const, fontSize: '11px' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(u => (
+                <tr key={u.id} style={{ borderBottom: '1px solid #F5F3EF' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#FAFAF8'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
+                >
+                  <td style={{ padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Avatar name={u.full_name} />
+                      <span style={{ fontWeight: '600', color: '#0C0904' }}>{u.full_name}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: '12px 16px', color: '#555' }}>{u.email}</td>
+                  <td style={{ padding: '12px 16px' }}><RolePill role={u.role} /></td>
+                  <td style={{ padding: '12px 16px', color: '#555' }}>{u.event_count}</td>
+                  <td style={{ padding: '12px 16px', color: '#888', whiteSpace: 'nowrap' as const }}>{fmtDate(u.created_at)}</td>
+                </tr>
               ))}
-            </>
-          )}
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
+            </tbody>
+          </table>
+        )}
+      </div>
+    </AdminLayout>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
-
-  pageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingHorizontal: H_PAD,
-    paddingTop: 32,
-    paddingBottom: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  pageTitle:    { fontSize: 24, color: TXT, fontWeight: '700', letterSpacing: 0.2 },
-  pageSubtitle: { fontSize: 13, color: MUTED, marginTop: 2 },
-
-  refreshBtn:     { borderWidth: 1, borderColor: BORDER, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  refreshBtnText: { fontSize: 13, color: MUTED },
-
-  statsRow: { flexDirection: 'row', paddingHorizontal: H_PAD, paddingVertical: 16, gap: 12 },
-  statCard: { flex: 1, borderWidth: 1, borderRadius: 12, padding: 16, backgroundColor: CARD, gap: 6 },
-  statLabel: { fontSize: 11, color: MUTED, letterSpacing: 0.5, textTransform: 'uppercase' },
-  statValue: { fontSize: 24, color: TXT, fontWeight: '700' },
-
-  filtersWrap: { paddingHorizontal: H_PAD, paddingBottom: 16, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderRadius: 10,
-    paddingHorizontal: 12, height: 40,
-    backgroundColor: CARD, gap: 8,
-  },
-  searchIcon:  { fontSize: 14 },
-  searchInput: { flex: 1, color: TXT, fontSize: 14, height: 40 },
-
-  filterTabs: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  filterTab:  { borderWidth: 1, borderColor: BORDER, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
-  filterTabActive:   { borderColor: GOLD, backgroundColor: 'rgba(212,168,83,0.1)' },
-  filterTabText:     { fontSize: 12, color: MUTED },
-
-  resultsRow:  { paddingHorizontal: H_PAD, paddingVertical: 10 },
-  resultsText: { fontSize: 12, color: MUTED },
-
-  tableWrap: { marginHorizontal: H_PAD, borderWidth: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: CARD },
-
-  loadRow:  { padding: 24, alignItems: 'center' },
-  loadText: { color: MUTED, fontSize: 14 },
-
-  // Table rows
-  tRow: {
-    flexDirection: 'row', alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
-    minHeight: 56,
-  },
-  tHeaderRow: { backgroundColor: '#141210', minHeight: 40 },
-  tAltRow:    { backgroundColor: 'rgba(255,255,255,0.015)' },
-  tCell:      { paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
-  tHCell:     { fontSize: 10, letterSpacing: 1.5, color: MUTED, fontWeight: '600' },
-  tBodyCell:  { fontSize: 13, color: TXT },
-
-  avatar:     { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 14, color: '#fff', fontWeight: '700' },
-
-  roleBadge:     { borderWidth: 1, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
-  roleBadgeText: { fontSize: 9, letterSpacing: 0.8, fontWeight: '600' },
-
-  roleBtn:     { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  roleBtnText: { fontSize: 10, letterSpacing: 0.4 },
-});

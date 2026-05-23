@@ -1,157 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { signOutAdmin, getAdminUser, AdminUser } from '../lib/admin-auth';
 
-const styles = {
-  container: {
-    display: 'flex',
-    minHeight: '100vh',
-    backgroundColor: '#F5F5F5',
-    fontFamily: '"DM Mono", monospace',
-  },
-  sidebar: {
-    width: '240px',
-    backgroundColor: '#0C0904',
-    borderRight: '2px solid #D4A853',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    padding: '24px',
-    color: '#F0E8D5',
-    position: 'fixed' as const,
-    height: '100vh',
-    overflowY: 'auto' as const,
-  },
-  sidebarTop: {
-    marginBottom: '32px',
-    paddingBottom: '24px',
-    borderBottom: '1px solid #333',
-  },
-  logoRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    marginBottom: '12px',
-  },
-  logoDot: {
-    width: '6px',
-    height: '6px',
-    backgroundColor: '#D4A853',
-    borderRadius: '50%',
-  },
-  logoText: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#D4A853',
-    letterSpacing: '1px',
-    fontFamily: '"Playfair Display", serif',
-  },
-  adminLabel: {
-    fontSize: '10px',
-    color: '#D4A853',
-    letterSpacing: '1px',
-    textTransform: 'uppercase' as const,
-    marginBottom: '12px',
-  },
-  adminInfo: {
-    marginTop: '12px',
-  },
-  adminName: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#F0E8D5',
-    marginBottom: '4px',
-  },
-  adminRolePill: {
-    display: 'inline-block',
-    fontSize: '10px',
-    padding: '4px 8px',
-    borderRadius: '4px',
-    backgroundColor: '#D4A853',
-    color: '#0C0904',
-    fontWeight: '600',
-    textTransform: 'capitalize' as const,
-  },
-  nav: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '4px',
-  },
-  navItem: {
-    padding: '12px 16px',
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#A0A0A0',
-    fontSize: '13px',
-    cursor: 'pointer',
-    textAlign: 'left' as const,
-    borderLeft: '3px solid transparent',
-    transition: 'all 0.2s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  navItemActive: {
-    backgroundColor: 'rgba(212, 168, 83, 0.1)',
-    borderLeftColor: '#D4A853',
-    color: '#D4A853',
-  },
-  sidebarBottom: {
-    marginTop: 'auto',
-    paddingTop: '24px',
-    borderTop: '1px solid #333',
-  },
-  adminEmail: {
-    fontSize: '11px',
-    color: '#808080',
-    marginBottom: '12px',
-  },
-  signOutButton: {
-    padding: '8px 12px',
-    backgroundColor: 'transparent',
-    border: '1px solid #FF5252',
-    color: '#FF5252',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: '500',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  main: {
-    marginLeft: '240px',
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column' as const,
-  },
-  topBar: {
-    backgroundColor: '#FFFFFF',
-    borderBottom: '1px solid #E0E0E0',
-    padding: '20px 32px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  pageInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  pageTitle: {
-    fontSize: '24px',
-    fontWeight: '600',
-    fontFamily: '"Playfair Display", serif',
-    color: '#0C0904',
-  },
-  breadcrumb: {
-    fontSize: '12px',
-    color: '#808080',
-  },
-  content: {
-    flex: 1,
-    padding: '32px',
-    overflowY: 'auto' as const,
-  },
-};
+const GOLD     = '#D4A853';
+const SIDEBAR  = '#0C0904';
+const WW       = '#F0E8D5';
+
+const NAV_ITEMS = [
+  { id: 'dashboard',  label: 'Dashboard',        icon: '📊', permission: null },
+  { id: 'events',     label: 'Events',            icon: '📅', permission: 'canViewEvents' },
+  { id: 'users',      label: 'Users',             icon: '👥', permission: 'canViewUsers' },
+  { id: 'payouts',    label: 'Payouts',           icon: '💰', permission: 'canViewPayouts' },
+  { id: 'analytics',  label: 'Analytics',         icon: '📈', permission: 'canViewAnalytics' },
+  { id: 'kyc',        label: 'KYC Review',        icon: '✅', permission: 'canViewKYC' },
+  { id: 'pricing',    label: 'Pricing',           icon: '🏷️', permission: 'canEditPricing' },
+  { id: 'notifications', label: 'Notifications',  icon: '🔔', permission: 'canSendNotifications' },
+  { id: 'settings',   label: 'Settings',          icon: '⚙️', permission: 'canEditSettings' },
+  { id: 'admin-mgmt', label: 'Admin Management',  icon: '👤', permission: 'canManageAdmins' },
+];
+
+function getRolePillColor(role: string): string {
+  switch (role) {
+    case 'super_admin':     return GOLD;
+    case 'finance_admin':   return '#4A90E2';
+    case 'support_admin':   return '#50C878';
+    case 'analytics_admin': return '#9B59B6';
+    case 'content_admin':   return '#FF9500';
+    default:                return '#808080';
+  }
+}
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -159,37 +36,18 @@ interface AdminLayoutProps {
   breadcrumb?: string;
 }
 
-const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊', permission: null },
-  { id: 'events', label: 'Events', icon: '📅', permission: 'canViewEvents' },
-  { id: 'users', label: 'Users', icon: '👥', permission: 'canViewUsers' },
-  { id: 'kyc', label: 'KYC Review', icon: '✅', permission: 'canViewKYC' },
-  { id: 'payouts', label: 'Payouts', icon: '💰', permission: 'canViewPayouts' },
-  { id: 'analytics', label: 'Analytics', icon: '📈', permission: 'canViewAnalytics' },
-  { id: 'pricing', label: 'Pricing', icon: '🏷️', permission: 'canEditPricing' },
-  { id: 'notifications', label: 'Notifications', icon: '🔔', permission: 'canSendNotifications' },
-  { id: 'settings', label: 'Settings', icon: '⚙️', permission: 'canEditSettings' },
-  { id: 'admin-mgmt', label: 'Admin Management', icon: '👤', permission: 'canManageAdmins' },
-];
-
 export default function AdminLayout({ children, pageTitle, breadcrumb }: AdminLayoutProps) {
   const navigate = useNavigate();
-  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  const location = useLocation();
+  const [admin, setAdmin]     = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeNav, setActiveNav] = useState('');
 
   useEffect(() => {
-    const loadAdmin = async () => {
-      const user = await getAdminUser();
-      if (!user) {
-        navigate('/admin/login');
-        return;
-      }
+    getAdminUser().then(user => {
+      if (!user) { navigate('/admin/login'); return; }
       setAdmin(user);
       setLoading(false);
-    };
-
-    loadAdmin();
+    });
   }, [navigate]);
 
   const handleSignOut = async () => {
@@ -198,89 +56,163 @@ export default function AdminLayout({ children, pageTitle, breadcrumb }: AdminLa
   };
 
   if (loading) {
-    return <div style={{ ...styles.container, alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#F5F3EF', fontFamily: '"DM Mono", monospace', color: '#888' }}>
+        Loading...
+      </div>
+    );
   }
 
   const filteredNav = NAV_ITEMS.filter(
-    (item) => !item.permission || (admin?.permissions as any)[item.permission]
+    item => !item.permission || (admin?.permissions as any)[item.permission]
   );
 
-  const getRolePillColor = (role: string): string => {
-    switch (role) {
-      case 'super_admin': return '#D4A853';
-      case 'finance_admin': return '#4A90E2';
-      case 'support_admin': return '#50C878';
-      case 'analytics_admin': return '#9B59B6';
-      case 'content_admin': return '#FF9500';
-      default: return '#808080';
-    }
-  };
-
   return (
-    <div style={styles.container}>
-      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      
-      {/* Sidebar */}
-      <aside style={styles.sidebar}>
-        <div style={styles.sidebarTop}>
-          <div style={styles.logoRow}>
-            <div style={styles.logoDot} />
-            <span style={styles.logoText}>GC</span>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#F5F3EF', fontFamily: '"DM Mono", monospace' }}>
+
+      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
+      <aside style={{
+        width: '240px',
+        backgroundColor: SIDEBAR,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'fixed',
+        top: 0, left: 0, bottom: 0,
+        overflowY: 'auto',
+        zIndex: 100,
+      }}>
+
+        {/* Logo */}
+        <div style={{ padding: '28px 24px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: GOLD, flexShrink: 0 }} />
+            <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', fontWeight: '700', color: WW, letterSpacing: '1.5px', textTransform: 'uppercase' as const }}>
+              Guestful Clicks
+            </span>
           </div>
-          <div style={styles.adminLabel}>Admin Panel</div>
-          {admin && (
-            <div style={styles.adminInfo}>
-              <div style={styles.adminName}>{admin.name}</div>
-              <div
-                style={{
-                  ...styles.adminRolePill,
-                  backgroundColor: getRolePillColor(admin.role),
-                }}
-              >
-                {admin.role.replace(/_/g, ' ')}
-              </div>
-            </div>
-          )}
+          <div style={{ fontSize: '10px', color: GOLD, letterSpacing: '2px', textTransform: 'uppercase' as const, paddingLeft: '15px' }}>
+            Admin Panel
+          </div>
         </div>
 
-        {/* Navigation */}
-        <nav style={styles.nav}>
-          {filteredNav.map((item) => (
-            <button
-              key={item.id}
-              style={{
-                ...styles.navItem,
-                ...(activeNav === item.id ? styles.navItemActive : {}),
-              }}
-              onClick={() => {
-                setActiveNav(item.id);
-                navigate(`/admin/${item.id === 'dashboard' ? 'dashboard' : item.id}`);
-              }}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
+        {/* Admin info */}
+        {admin && (
+          <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontSize: '13px', fontWeight: '600', color: WW, marginBottom: '6px', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {admin.full_name || admin.email}
+            </div>
+            <div style={{
+              display: 'inline-block',
+              fontSize: '10px',
+              padding: '3px 8px',
+              borderRadius: '4px',
+              backgroundColor: getRolePillColor(admin.role),
+              color: admin.role === 'super_admin' ? '#0C0904' : '#FFFFFF',
+              fontWeight: '600',
+              textTransform: 'capitalize' as const,
+              letterSpacing: '0.3px',
+            }}>
+              {admin.role.replace(/_/g, ' ')}
+            </div>
+          </div>
+        )}
+
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '12px 0' }}>
+          {filteredNav.map(item => {
+            const route   = `/admin/${item.id}`;
+            const isActive = location.pathname === route;
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(route)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '11px 24px',
+                  background: isActive ? 'rgba(212,168,83,0.12)' : 'transparent',
+                  border: 'none',
+                  borderLeft: isActive ? `3px solid ${GOLD}` : '3px solid transparent',
+                  color: isActive ? GOLD : '#888',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textAlign: 'left' as const,
+                  transition: 'all 0.15s',
+                  fontFamily: '"DM Mono", monospace',
+                }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                <span style={{ fontSize: '15px', width: '20px', textAlign: 'center' as const }}>{item.icon}</span>
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Bottom */}
-        <div style={styles.sidebarBottom}>
-          {admin && <div style={styles.adminEmail}>{admin.email}</div>}
-          <button style={styles.signOutButton} onClick={handleSignOut}>
-            Sign Out
+        {/* Bottom — logout */}
+        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          {admin && (
+            <div style={{ fontSize: '11px', color: '#555', marginBottom: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+              {admin.email}
+            </div>
+          )}
+          <button
+            onClick={handleSignOut}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#FF6B6B',
+              fontSize: '13px',
+              cursor: 'pointer',
+              padding: '0',
+              fontFamily: '"DM Mono", monospace',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            ↩ Sign Out
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <div style={styles.main}>
-        <div style={styles.topBar}>
-          <div style={styles.pageInfo}>
-            <h1 style={styles.pageTitle}>{pageTitle}</h1>
-            {breadcrumb && <div style={styles.breadcrumb}>{breadcrumb}</div>}
+      {/* ── Main ────────────────────────────────────────────────────────── */}
+      <div style={{ marginLeft: '240px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+
+        {/* Top bar */}
+        <header style={{
+          backgroundColor: '#FFFFFF',
+          borderBottom: '1px solid #E8E3DC',
+          padding: '0 32px',
+          height: '64px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+        }}>
+          <div>
+            <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: '700', color: '#0C0904', lineHeight: 1 }}>
+              {pageTitle}
+            </h1>
+            {breadcrumb && <div style={{ fontSize: '11px', color: '#999', marginTop: '3px' }}>{breadcrumb}</div>}
           </div>
-        </div>
-        <div style={styles.content}>{children}</div>
+          {admin && (
+            <div style={{ fontSize: '12px', color: '#888' }}>
+              {admin.full_name || admin.email}
+            </div>
+          )}
+        </header>
+
+        {/* Page content */}
+        <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
+          {children}
+        </main>
       </div>
     </div>
   );

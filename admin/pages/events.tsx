@@ -1,59 +1,65 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { supabase } from '../../supabase/client';
-import { EventTable, EventTableRow } from '../components/event-table';
+import { supabase } from '../lib/supabase';
+import AdminLayout from '../components/admin-layout';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const BG     = '#0F0E0C';
-const CARD   = '#1A1714';
-const TXT    = '#F0E8D5';
-const MUTED  = 'rgba(240,232,213,0.5)';
-const BORDER = 'rgba(240,232,213,0.1)';
-const GOLD   = '#D4A853';
-const GREEN  = '#4CAF50';
-const H_PAD  = 24;
+const GOLD  = '#D4A853';
+const SERIF = '"Playfair Display", serif';
+const MONO  = '"DM Mono", monospace';
+const CARD  = { backgroundColor: '#FFFFFF', border: '1px solid #E8E3DC', borderRadius: '12px', padding: '20px 24px' };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type FilterStatus = 'all' | 'active' | 'revealed' | 'archived';
 type FilterType   = 'all' | 'private' | 'public';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmtINR(n: number): string {
-  return `₹${n.toLocaleString('en-IN')}`;
+interface EventRow {
+  id:          string;
+  title:       string;
+  type:        'private' | 'public';
+  status:      'active' | 'revealed' | 'archived';
+  date:        string;
+  host_name:   string;
+  guest_count: number;
+  photo_count: number;
+  revenue:     number;
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-export default function AdminEventsPage() {
-  const [events, setEvents]       = useState<EventTableRow[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [search, setSearch]       = useState('');
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
-  const [typeFilter, setTypeFilter]     = useState<FilterType>('all');
+function fmtINR(n: number) { return `₹${n.toLocaleString('en-IN')}`; }
+function fmtDate(iso: string) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
-  // Summary stats
-  const [totalEvents,  setTotalEvents]  = useState(0);
-  const [activeEvents, setActiveEvents] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
+function StatusPill({ status }: { status: string }) {
+  const map: Record<string, { bg: string; color: string }> = {
+    active:   { bg: '#E6F9EE', color: '#1A7A40' },
+    revealed: { bg: '#FFF3CD', color: '#856404' },
+    archived: { bg: '#F0F0F0', color: '#666' },
+  };
+  const s = map[status] ?? { bg: '#F0F0F0', color: '#666' };
+  return <span style={{ ...s, fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '4px', textTransform: 'capitalize' as const }}>{status}</span>;
+}
 
-  // ── Data load ────────────────────────────────────────────────────────────
+function TypePill({ type }: { type: string }) {
+  const isPublic = type === 'public';
+  return <span style={{ fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '4px', backgroundColor: isPublic ? '#EEF4FF' : '#F5F3EF', color: isPublic ? '#4A90E2' : '#666', textTransform: 'capitalize' as const }}>{type}</span>;
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+export default function EventsPage() {
+  const [events, setEvents]                 = useState<EventRow[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [search, setSearch]                 = useState('');
+  const [statusFilter, setStatusFilter]     = useState<FilterStatus>('all');
+  const [typeFilter, setTypeFilter]         = useState<FilterType>('all');
+  const [totalRevenue, setTotalRevenue]     = useState(0);
+  const [activeCount, setActiveCount]       = useState(0);
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
-
-    // Fetch events with host info
     const { data: evs } = await supabase
       .from('events')
       .select('id, title, type, status, date, host_id, guest_count')
@@ -61,12 +67,10 @@ export default function AdminEventsPage() {
 
     if (!evs?.length) { setEvents([]); setLoading(false); return; }
 
-    // Resolve host names and stats per event
-    const rows: EventTableRow[] = await Promise.all(
-      evs.map(async ev => {
-        const [{ data: host }, { count: gc }, { count: pc }, { data: paid }] = await Promise.all([
+    const rows: EventRow[] = await Promise.all(
+      evs.map(async (ev: any) => {
+        const [{ data: host }, { count: pc }, { data: paid }] = await Promise.all([
           supabase.from('users').select('full_name').eq('id', ev.host_id).single(),
-          supabase.from('participants').select('*', { count: 'exact', head: true }).eq('event_id', ev.id),
           supabase.from('photos').select('*', { count: 'exact', head: true }).eq('event_id', ev.id),
           supabase.from('participants').select('amount_paid').eq('event_id', ev.id),
         ]);
@@ -77,8 +81,8 @@ export default function AdminEventsPage() {
           type:        ev.type,
           status:      ev.status,
           date:        ev.date,
-          host_name:   (host as any)?.full_name ?? 'Unknown',
-          guest_count: gc ?? 0,
+          host_name:   (host as any)?.full_name ?? '—',
+          guest_count: ev.guest_count ?? 0,
           photo_count: pc ?? 0,
           revenue,
         };
@@ -86,229 +90,129 @@ export default function AdminEventsPage() {
     );
 
     setEvents(rows);
-    setTotalEvents(rows.length);
-    setActiveEvents(rows.filter(r => r.status === 'active').length);
     setTotalRevenue(rows.reduce((s, r) => s + r.revenue, 0));
+    setActiveCount(rows.filter(r => r.status === 'active').length);
     setLoading(false);
   }, []);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
-
-  const handleReveal = (id: string) => {
-    Alert.alert('Reveal event?', 'This will make all photos visible to participants.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reveal',
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.from('events').update({ status: 'revealed' }).eq('id', id);
-          await supabase.from('photos').update({ is_revealed: true }).eq('event_id', id);
-          setEvents(prev => prev.map(e => e.id === id ? { ...e, status: 'revealed' as const } : e));
-          setActiveEvents(n => Math.max(0, n - 1));
-        },
-      },
-    ]);
-  };
-
-  const handleArchive = (id: string) => {
-    Alert.alert('Archive event?', 'This event will be marked as archived.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Archive',
-        onPress: async () => {
-          await supabase.from('events').update({ status: 'archived' }).eq('id', id);
-          setEvents(prev => prev.map(e => e.id === id ? { ...e, status: 'archived' as const } : e));
-        },
-      },
-    ]);
-  };
-
-  // ── Filtered list ─────────────────────────────────────────────────────────
-
   const filtered = events.filter(ev => {
-    const matchStatus = statusFilter === 'all' || ev.status === statusFilter;
-    const matchType   = typeFilter   === 'all' || ev.type   === typeFilter;
-    const matchSearch = !search || ev.title.toLowerCase().includes(search.toLowerCase()) ||
-                        ev.host_name.toLowerCase().includes(search.toLowerCase());
-    return matchStatus && matchType && matchSearch;
+    if (statusFilter !== 'all' && ev.status !== statusFilter) return false;
+    if (typeFilter !== 'all' && ev.type !== typeFilter) return false;
+    if (search && !ev.title.toLowerCase().includes(search.toLowerCase()) && !ev.host_name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
   });
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const handleReveal = async (id: string) => {
+    if (!window.confirm('Reveal this event now?')) return;
+    await supabase.from('events').update({ status: 'revealed' }).eq('id', id);
+    loadEvents();
+  };
 
-  const STATUS_TABS: FilterStatus[] = ['all', 'active', 'revealed', 'archived'];
-  const TYPE_TABS:   FilterType[]   = ['all', 'private', 'public'];
+  const handleArchive = async (id: string) => {
+    if (!window.confirm('Archive this event?')) return;
+    await supabase.from('events').update({ status: 'archived' }).eq('id', id);
+    loadEvents();
+  };
+
+  const selectStyle = {
+    padding: '8px 12px', border: '1px solid #E8E3DC', borderRadius: '8px',
+    fontSize: '12px', fontFamily: MONO, color: '#333', backgroundColor: '#FFFFFF', cursor: 'pointer',
+  };
 
   return (
-    <View style={s.root}>
-      <StatusBar barStyle="light-content" />
+    <AdminLayout pageTitle="Events">
 
-      {/* Page header */}
-      <View style={[s.pageHeader, { borderBottomColor: BORDER }]}>
-        <View>
-          <Text style={s.pageTitle}>Events</Text>
-          <Text style={s.pageSubtitle}>All events across the platform</Text>
-        </View>
-        <TouchableOpacity style={s.refreshBtn} onPress={loadEvents}>
-          <Text style={s.refreshBtnText}>↻ Refresh</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Summary */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' as const }}>
+        {[
+          { label: 'Total Events', value: events.length },
+          { label: 'Active Now',   value: activeCount },
+          { label: 'Total Revenue',value: fmtINR(totalRevenue) },
+        ].map(s => (
+          <div key={s.label} style={{ ...CARD, flex: 1, minWidth: '140px' }}>
+            <div style={{ fontFamily: SERIF, fontSize: '24px', fontWeight: '700', color: '#0C0904' }}>{s.value}</div>
+            <div style={{ fontSize: '11px', color: '#888', marginTop: '4px', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      {/* Filters */}
+      <div style={{ ...CARD, marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' as const, alignItems: 'center' }}>
+        <input
+          style={{ ...selectStyle, flex: 1, minWidth: '180px' }}
+          placeholder="Search events or hosts…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select style={selectStyle} value={statusFilter} onChange={e => setStatusFilter(e.target.value as FilterStatus)}>
+          <option value="all">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="revealed">Revealed</option>
+          <option value="archived">Archived</option>
+        </select>
+        <select style={selectStyle} value={typeFilter} onChange={e => setTypeFilter(e.target.value as FilterType)}>
+          <option value="all">All Types</option>
+          <option value="private">Private</option>
+          <option value="public">Public</option>
+        </select>
+        <button onClick={loadEvents} style={{ ...selectStyle, backgroundColor: GOLD, color: '#0C0904', border: 'none', fontWeight: '600' }}>
+          Refresh
+        </button>
+      </div>
 
-        {/* Summary cards */}
-        <View style={s.statsRow}>
-          <View style={[s.statCard, { borderColor: BORDER }]}>
-            <Text style={s.statLabel}>Total Events</Text>
-            <Text style={s.statValue}>{totalEvents}</Text>
-          </View>
-          <View style={[s.statCard, { borderColor: BORDER }]}>
-            <Text style={s.statLabel}>Active</Text>
-            <Text style={[s.statValue, { color: GREEN }]}>{activeEvents}</Text>
-          </View>
-          <View style={[s.statCard, { borderColor: BORDER }]}>
-            <Text style={s.statLabel}>Total Revenue</Text>
-            <Text style={[s.statValue, { color: GOLD }]}>{fmtINR(totalRevenue)}</Text>
-          </View>
-        </View>
-
-        {/* Filters */}
-        <View style={[s.filtersWrap, { borderBottomColor: BORDER }]}>
-          {/* Search */}
-          <View style={[s.searchWrap, { borderColor: BORDER }]}>
-            <Text style={s.searchIcon}>🔍</Text>
-            <TextInput
-              style={s.searchInput}
-              placeholder="Search by title or host..."
-              placeholderTextColor={MUTED}
-              value={search}
-              onChangeText={setSearch}
-            />
-          </View>
-
-          {/* Status filter */}
-          <View style={s.filterTabs}>
-            {STATUS_TABS.map(tab => (
-              <TouchableOpacity
-                key={tab}
-                style={[s.filterTab, statusFilter === tab && s.filterTabActive]}
-                onPress={() => setStatusFilter(tab)}
-              >
-                <Text style={[s.filterTabText, statusFilter === tab && s.filterTabTextActive]}>
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Type filter */}
-          <View style={s.filterTabs}>
-            {TYPE_TABS.map(tab => (
-              <TouchableOpacity
-                key={tab}
-                style={[s.filterTab, typeFilter === tab && s.filterTabActive]}
-                onPress={() => setTypeFilter(tab)}
-              >
-                <Text style={[s.filterTabText, typeFilter === tab && s.filterTabTextActive]}>
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Results count */}
-        <View style={s.resultsRow}>
-          <Text style={s.resultsText}>{filtered.length} event{filtered.length !== 1 ? 's' : ''}</Text>
-        </View>
-
-        {/* Table */}
-        <View style={[s.tableWrap, { borderColor: BORDER }]}>
-          <EventTable
-            events={filtered}
-            loading={loading}
-            onReveal={handleReveal}
-            onArchive={handleArchive}
-          />
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
+      {/* Table */}
+      <div style={{ ...CARD, padding: 0, overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center' as const, color: '#888', fontSize: '13px' }}>Loading events…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center' as const, color: '#888', fontSize: '13px' }}>No events found.</div>
+        ) : (
+          <div style={{ overflowX: 'auto' as const }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: '12px', fontFamily: MONO }}>
+              <thead style={{ backgroundColor: '#F5F3EF', borderBottom: '1px solid #E8E3DC' }}>
+                <tr>
+                  {['Event', 'Host', 'Type', 'Date', 'Guests', 'Photos', 'Revenue', 'Status', 'Actions'].map(h => (
+                    <th key={h} style={{ textAlign: 'left' as const, padding: '12px 16px', fontWeight: '600', color: '#555', letterSpacing: '0.5px', textTransform: 'uppercase' as const, fontSize: '11px', whiteSpace: 'nowrap' as const }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(ev => (
+                  <tr key={ev.id} style={{ borderBottom: '1px solid #F5F3EF' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#FAFAF8'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
+                  >
+                    <td style={{ padding: '14px 16px', fontWeight: '600', color: '#0C0904', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{ev.title}</td>
+                    <td style={{ padding: '14px 16px', color: '#555' }}>{ev.host_name}</td>
+                    <td style={{ padding: '14px 16px' }}><TypePill type={ev.type} /></td>
+                    <td style={{ padding: '14px 16px', color: '#555', whiteSpace: 'nowrap' as const }}>{fmtDate(ev.date)}</td>
+                    <td style={{ padding: '14px 16px', color: '#555' }}>{ev.guest_count}</td>
+                    <td style={{ padding: '14px 16px', color: '#555' }}>{ev.photo_count}</td>
+                    <td style={{ padding: '14px 16px', color: GOLD, fontWeight: '600' }}>{fmtINR(ev.revenue)}</td>
+                    <td style={{ padding: '14px 16px' }}><StatusPill status={ev.status} /></td>
+                    <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' as const }}>
+                      {ev.status === 'active' && (
+                        <button onClick={() => handleReveal(ev.id)} style={{ marginRight: '6px', padding: '5px 10px', fontSize: '11px', border: `1px solid ${GOLD}`, color: GOLD, backgroundColor: 'transparent', borderRadius: '4px', cursor: 'pointer', fontFamily: MONO }}>
+                          Reveal
+                        </button>
+                      )}
+                      {ev.status !== 'archived' && (
+                        <button onClick={() => handleArchive(ev.id)} style={{ padding: '5px 10px', fontSize: '11px', border: '1px solid #DDD', color: '#888', backgroundColor: 'transparent', borderRadius: '4px', cursor: 'pointer', fontFamily: MONO }}>
+                          Archive
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </AdminLayout>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
-
-  pageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingHorizontal: H_PAD,
-    paddingTop: 32,
-    paddingBottom: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  pageTitle:    { fontSize: 24, color: TXT, fontWeight: '700', letterSpacing: 0.2 },
-  pageSubtitle: { fontSize: 13, color: MUTED, marginTop: 2 },
-
-  refreshBtn:     { borderWidth: 1, borderColor: BORDER, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  refreshBtnText: { fontSize: 13, color: MUTED },
-
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: H_PAD,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: CARD,
-    gap: 6,
-  },
-  statLabel: { fontSize: 11, color: MUTED, letterSpacing: 0.5, textTransform: 'uppercase' },
-  statValue: { fontSize: 24, color: TXT, fontWeight: '700' },
-
-  filtersWrap: {
-    paddingHorizontal: H_PAD,
-    paddingBottom: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 12,
-  },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 40,
-    backgroundColor: CARD,
-    gap: 8,
-  },
-  searchIcon:  { fontSize: 14 },
-  searchInput: { flex: 1, color: TXT, fontSize: 14, height: 40 },
-
-  filterTabs:        { flexDirection: 'row', gap: 8 },
-  filterTab:         { borderWidth: 1, borderColor: BORDER, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
-  filterTabActive:   { borderColor: GOLD, backgroundColor: 'rgba(212,168,83,0.12)' },
-  filterTabText:     { fontSize: 12, color: MUTED },
-  filterTabTextActive: { color: GOLD },
-
-  resultsRow: { paddingHorizontal: H_PAD, paddingVertical: 10 },
-  resultsText: { fontSize: 12, color: MUTED },
-
-  tableWrap: {
-    marginHorizontal: H_PAD,
-    borderWidth: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: CARD,
-  },
-});

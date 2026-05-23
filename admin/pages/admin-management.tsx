@@ -271,14 +271,14 @@ export default function AdminManagement() {
         admin_role,
         is_active,
         created_at,
-        users(id, name, email)
+        users(id, full_name, email)
       `)
       .order('created_at', { ascending: false });
 
     if (!err && data) {
       const adminList = (data as any[]).map((item) => ({
         id: item.user_id,
-        name: item.users?.name || 'Unknown',
+        name: item.users?.full_name || 'Unknown',
         email: item.users?.email || 'Unknown',
         admin_role: item.admin_role,
         is_active: item.is_active,

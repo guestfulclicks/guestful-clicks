@@ -1,63 +1,61 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { supabase } from '../../supabase/client';
-import { PayoutTable, PayoutTableRow, PayoutStatus } from '../components/payout-table';
+import { supabase } from '../lib/supabase';
+import AdminLayout from '../components/admin-layout';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+const GOLD  = '#D4A853';
+const SERIF = '"Playfair Display", serif';
+const MONO  = '"DM Mono", monospace';
+const CARD  = { backgroundColor: '#FFFFFF', border: '1px solid #E8E3DC', borderRadius: '12px', padding: '20px 24px' };
 
-const BG     = '#0F0E0C';
-const CARD   = '#1A1714';
-const TXT    = '#F0E8D5';
-const MUTED  = 'rgba(240,232,213,0.5)';
-const BORDER = 'rgba(240,232,213,0.1)';
-const GOLD   = '#D4A853';
-const GREEN  = '#4CAF50';
-const BLUE   = '#5B8AF0';
-const RED    = '#FF5252';
-const H_PAD  = 24;
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type PayoutStatus = 'pending' | 'scheduled' | 'paid' | 'failed';
+
+interface PayoutRow {
+  id:             string;
+  event_title:    string;
+  organiser_name: string;
+  amount:         number;
+  status:         PayoutStatus;
+  scheduled_date: string;
+  event_date:     string;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtINR(n: number): string {
-  return `₹${n.toLocaleString('en-IN')}`;
+function fmtINR(n: number) { return `₹${n.toLocaleString('en-IN')}`; }
+function fmtDate(iso: string) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function todayISO() { return new Date().toISOString().split('T')[0]; }
+
+const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  pending:   { bg: '#FFF7E0', color: '#7A5200' },
+  scheduled: { bg: '#EEF4FF', color: '#1E3A8A' },
+  paid:      { bg: '#E6F9EE', color: '#1A7A40' },
+  failed:    { bg: '#FFE9E9', color: '#B71C1C' },
+};
+
+function StatusPill({ status }: { status: string }) {
+  const s = STATUS_STYLE[status] ?? { bg: '#F0F0F0', color: '#666' };
+  return <span style={{ ...s, fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '4px', textTransform: 'capitalize' as const }}>{status}</span>;
 }
 
-function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
-}
+// ── Main ──────────────────────────────────────────────────────────────────────
 
-// ── Main component ────────────────────────────────────────────────────────────
-
-export default function AdminPayoutsPage() {
-  const [payouts, setPayouts]           = useState<PayoutTableRow[]>([]);
+export default function PayoutsPage() {
+  const [payouts, setPayouts]           = useState<PayoutRow[]>([]);
   const [loading, setLoading]           = useState(true);
   const [statusFilter, setStatusFilter] = useState<PayoutStatus | 'all'>('all');
-
-  // Schedule modal
-  const [scheduleId, setScheduleId]   = useState<string | null>(null);
+  const [scheduleId, setScheduleId]     = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(todayISO());
-
-  // Summary
-  const [totalPending,   setTotalPending]   = useState(0);
+  const [totalPending, setTotalPending]     = useState(0);
   const [totalScheduled, setTotalScheduled] = useState(0);
-  const [totalPaid,      setTotalPaid]      = useState(0);
-
-  // ── Data load ────────────────────────────────────────────────────────────
+  const [totalPaid, setTotalPaid]           = useState(0);
 
   const loadPayouts = useCallback(async () => {
     setLoading(true);
-
     const { data: pos } = await supabase
       .from('payouts')
       .select('id, event_id, organiser_id, amount, status, scheduled_date')
@@ -65,16 +63,16 @@ export default function AdminPayoutsPage() {
 
     if (!pos?.length) { setPayouts([]); setLoading(false); return; }
 
-    const rows: PayoutTableRow[] = await Promise.all(
-      pos.map(async po => {
+    const rows: PayoutRow[] = await Promise.all(
+      pos.map(async (po: any) => {
         const [{ data: ev }, { data: org }] = await Promise.all([
           supabase.from('events').select('title, date').eq('id', po.event_id).single(),
           supabase.from('users').select('full_name').eq('id', po.organiser_id).single(),
         ]);
         return {
           id:             po.id,
-          event_title:    (ev as any)?.title   ?? 'Unknown',
-          organiser_name: (org as any)?.full_name ?? 'Unknown',
+          event_title:    (ev as any)?.title     ?? '—',
+          organiser_name: (org as any)?.full_name ?? '—',
           amount:         po.amount,
           status:         po.status as PayoutStatus,
           scheduled_date: po.scheduled_date ?? '',
@@ -84,254 +82,134 @@ export default function AdminPayoutsPage() {
     );
 
     setPayouts(rows);
-
-    const pending   = rows.filter(r => r.status === 'pending').reduce((s, r) => s + r.amount, 0);
-    const scheduled = rows.filter(r => r.status === 'scheduled').reduce((s, r) => s + r.amount, 0);
-    const paid      = rows.filter(r => r.status === 'paid').reduce((s, r) => s + r.amount, 0);
-    setTotalPending(pending);
-    setTotalScheduled(scheduled);
-    setTotalPaid(paid);
-
+    setTotalPending(rows.filter(r => r.status === 'pending').reduce((s, r) => s + r.amount, 0));
+    setTotalScheduled(rows.filter(r => r.status === 'scheduled').reduce((s, r) => s + r.amount, 0));
+    setTotalPaid(rows.filter(r => r.status === 'paid').reduce((s, r) => s + r.amount, 0));
     setLoading(false);
   }, []);
 
   useEffect(() => { loadPayouts(); }, [loadPayouts]);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
-
-  const handleSchedule = (id: string) => {
-    setScheduleId(id);
-    setScheduleDate(todayISO());
-  };
-
-  const confirmSchedule = async () => {
+  const handleSchedule = async () => {
     if (!scheduleId) return;
-    await supabase
-      .from('payouts')
-      .update({ status: 'scheduled', scheduled_date: scheduleDate })
-      .eq('id', scheduleId);
-    setPayouts(prev =>
-      prev.map(p => p.id === scheduleId
-        ? { ...p, status: 'scheduled' as PayoutStatus, scheduled_date: scheduleDate }
-        : p)
-    );
+    await supabase.from('payouts').update({ status: 'scheduled', scheduled_date: scheduleDate }).eq('id', scheduleId);
     setScheduleId(null);
+    loadPayouts();
   };
 
-  const handleMarkPaid = (id: string) => {
-    Alert.alert('Mark as paid?', 'This will record the payout as completed.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Mark Paid',
-        onPress: async () => {
-          await supabase.from('payouts').update({ status: 'paid' }).eq('id', id);
-          setPayouts(prev => prev.map(p => p.id === id ? { ...p, status: 'paid' as PayoutStatus } : p));
-        },
-      },
-    ]);
+  const handleMarkPaid = async (id: string) => {
+    if (!window.confirm('Mark this payout as paid?')) return;
+    await supabase.from('payouts').update({ status: 'paid' }).eq('id', id);
+    loadPayouts();
   };
 
-  const handleMarkFailed = (id: string) => {
-    Alert.alert('Mark as failed?', 'This will flag the payout as failed and require re-processing.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Mark Failed',
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.from('payouts').update({ status: 'failed' }).eq('id', id);
-          setPayouts(prev => prev.map(p => p.id === id ? { ...p, status: 'failed' as PayoutStatus } : p));
-        },
-      },
-    ]);
-  };
+  const filtered = statusFilter === 'all' ? payouts : payouts.filter(p => p.status === statusFilter);
 
-  // ── Filtered list ─────────────────────────────────────────────────────────
-
-  const filtered = payouts.filter(p =>
-    statusFilter === 'all' || p.status === statusFilter
-  );
-
-  // ── Render ────────────────────────────────────────────────────────────────
-
-  const STATUS_FILTERS: (PayoutStatus | 'all')[] = ['all', 'pending', 'scheduled', 'paid', 'failed'];
-  const statusColors: Record<PayoutStatus | 'all', string> = {
-    all: MUTED, pending: GOLD, scheduled: BLUE, paid: GREEN, failed: RED,
+  const selectStyle = {
+    padding: '8px 12px', border: '1px solid #E8E3DC', borderRadius: '8px',
+    fontSize: '12px', fontFamily: MONO, color: '#333', backgroundColor: '#FFFFFF', cursor: 'pointer',
   };
 
   return (
-    <View style={s.root}>
-      <StatusBar barStyle="light-content" />
+    <AdminLayout pageTitle="Payouts">
 
-      {/* Page header */}
-      <View style={[s.pageHeader, { borderBottomColor: BORDER }]}>
-        <View>
-          <Text style={s.pageTitle}>Payouts</Text>
-          <Text style={s.pageSubtitle}>Organiser payout management</Text>
-        </View>
-        <TouchableOpacity style={s.refreshBtn} onPress={loadPayouts}>
-          <Text style={s.refreshBtnText}>↻ Refresh</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Summary */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' as const }}>
+        {[
+          { label: 'Pending',   value: fmtINR(totalPending),   accent: true },
+          { label: 'Scheduled', value: fmtINR(totalScheduled) },
+          { label: 'Paid Out',  value: fmtINR(totalPaid) },
+        ].map(s => (
+          <div key={s.label} style={{ ...CARD, flex: 1, minWidth: '140px' }}>
+            <div style={{ fontFamily: SERIF, fontSize: '24px', fontWeight: '700', color: s.accent ? GOLD : '#0C0904' }}>{s.value}</div>
+            <div style={{ fontSize: '11px', color: '#888', marginTop: '4px', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      {/* Filter */}
+      <div style={{ ...CARD, marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <select style={selectStyle} value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="paid">Paid</option>
+          <option value="failed">Failed</option>
+        </select>
+        <button onClick={loadPayouts} style={{ ...selectStyle, backgroundColor: GOLD, color: '#0C0904', border: 'none', fontWeight: '600' }}>
+          Refresh
+        </button>
+      </div>
 
-        {/* Summary cards */}
-        <View style={s.statsRow}>
-          <View style={[s.statCard, { borderColor: BORDER }]}>
-            <Text style={s.statLabel}>Pending</Text>
-            <Text style={[s.statValue, { color: GOLD }]}>{fmtINR(totalPending)}</Text>
-          </View>
-          <View style={[s.statCard, { borderColor: BORDER }]}>
-            <Text style={s.statLabel}>Scheduled</Text>
-            <Text style={[s.statValue, { color: BLUE }]}>{fmtINR(totalScheduled)}</Text>
-          </View>
-          <View style={[s.statCard, { borderColor: BORDER }]}>
-            <Text style={s.statLabel}>Paid Out</Text>
-            <Text style={[s.statValue, { color: GREEN }]}>{fmtINR(totalPaid)}</Text>
-          </View>
-        </View>
+      {/* Schedule modal */}
+      {scheduleId && (
+        <div style={{ position: 'fixed' as const, inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}
+          onClick={() => setScheduleId(null)}>
+          <div style={{ backgroundColor: '#FFF', borderRadius: '12px', padding: '32px', minWidth: '320px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontFamily: SERIF, fontSize: '20px', marginBottom: '20px', color: '#0C0904' }}>Schedule Payout</h3>
+            <label style={{ display: 'block', fontSize: '11px', color: '#888', marginBottom: '6px', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>Payment Date</label>
+            <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
+              style={{ ...selectStyle, width: '100%', marginBottom: '20px' }} />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={handleSchedule} style={{ flex: 1, padding: '10px', backgroundColor: GOLD, border: 'none', borderRadius: '8px', color: '#0C0904', fontWeight: '600', cursor: 'pointer', fontFamily: MONO }}>
+                Confirm
+              </button>
+              <button onClick={() => setScheduleId(null)} style={{ flex: 1, padding: '10px', backgroundColor: '#F5F3EF', border: 'none', borderRadius: '8px', color: '#555', cursor: 'pointer', fontFamily: MONO }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Status filter */}
-        <View style={[s.filtersWrap, { borderBottomColor: BORDER }]}>
-          <View style={s.filterTabs}>
-            {STATUS_FILTERS.map(tab => (
-              <TouchableOpacity
-                key={tab}
-                style={[
-                  s.filterTab,
-                  { borderColor: statusFilter === tab ? statusColors[tab] : BORDER },
-                  statusFilter === tab && { backgroundColor: `${statusColors[tab]}18` },
-                ]}
-                onPress={() => setStatusFilter(tab)}
-              >
-                <Text style={[s.filterTabText, { color: statusFilter === tab ? statusColors[tab] : MUTED }]}>
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Results */}
-        <View style={s.resultsRow}>
-          <Text style={s.resultsText}>{filtered.length} payout{filtered.length !== 1 ? 's' : ''}</Text>
-        </View>
-
-        {/* Table */}
-        <View style={[s.tableWrap, { borderColor: BORDER }]}>
-          <PayoutTable
-            payouts={filtered}
-            loading={loading}
-            onSchedule={handleSchedule}
-            onMarkPaid={handleMarkPaid}
-            onMarkFailed={handleMarkFailed}
-          />
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-
-      {/* Schedule date modal */}
-      <Modal
-        visible={!!scheduleId}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setScheduleId(null)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalCard, { borderColor: BORDER }]}>
-            <Text style={s.modalTitle}>Schedule Payout</Text>
-            <Text style={s.modalLabel}>Scheduled Date (YYYY-MM-DD)</Text>
-            <TextInput
-              style={[s.dateInput, { borderColor: BORDER }]}
-              value={scheduleDate}
-              onChangeText={setScheduleDate}
-              placeholder="2026-05-22"
-              placeholderTextColor={MUTED}
-              keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
-            />
-            <View style={s.modalActions}>
-              <TouchableOpacity
-                style={[s.modalBtn, { borderColor: BORDER }]}
-                onPress={() => setScheduleId(null)}
-              >
-                <Text style={[s.modalBtnText, { color: MUTED }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.modalBtn, { borderColor: BLUE, backgroundColor: `${BLUE}18` }]}
-                onPress={confirmSchedule}
-              >
-                <Text style={[s.modalBtnText, { color: BLUE }]}>Confirm</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
+      {/* Table */}
+      <div style={{ ...CARD, padding: 0, overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center' as const, color: '#888', fontSize: '13px' }}>Loading payouts…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center' as const, color: '#888', fontSize: '13px' }}>No payouts found.</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: '12px', fontFamily: MONO }}>
+            <thead style={{ backgroundColor: '#F5F3EF', borderBottom: '1px solid #E8E3DC' }}>
+              <tr>
+                {['Event', 'Organiser', 'Amount', 'Status', 'Event Date', 'Scheduled', 'Actions'].map(h => (
+                  <th key={h} style={{ textAlign: 'left' as const, padding: '12px 16px', fontWeight: '600', color: '#555', letterSpacing: '0.5px', textTransform: 'uppercase' as const, fontSize: '11px', whiteSpace: 'nowrap' as const }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(p => (
+                <tr key={p.id} style={{ borderBottom: '1px solid #F5F3EF' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#FAFAF8'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
+                >
+                  <td style={{ padding: '14px 16px', fontWeight: '600', color: '#0C0904', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{p.event_title}</td>
+                  <td style={{ padding: '14px 16px', color: '#555' }}>{p.organiser_name}</td>
+                  <td style={{ padding: '14px 16px', color: GOLD, fontWeight: '600' }}>{fmtINR(p.amount)}</td>
+                  <td style={{ padding: '14px 16px' }}><StatusPill status={p.status} /></td>
+                  <td style={{ padding: '14px 16px', color: '#888', whiteSpace: 'nowrap' as const }}>{fmtDate(p.event_date)}</td>
+                  <td style={{ padding: '14px 16px', color: '#888', whiteSpace: 'nowrap' as const }}>{fmtDate(p.scheduled_date)}</td>
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' as const }}>
+                    {p.status === 'pending' && (
+                      <button onClick={() => setScheduleId(p.id)} style={{ marginRight: '6px', padding: '5px 10px', fontSize: '11px', border: '1px solid #4A90E2', color: '#4A90E2', backgroundColor: 'transparent', borderRadius: '4px', cursor: 'pointer', fontFamily: MONO }}>
+                        Schedule
+                      </button>
+                    )}
+                    {p.status === 'scheduled' && (
+                      <button onClick={() => handleMarkPaid(p.id)} style={{ padding: '5px 10px', fontSize: '11px', border: '1px solid #50C878', color: '#50C878', backgroundColor: 'transparent', borderRadius: '4px', cursor: 'pointer', fontFamily: MONO }}>
+                        Mark Paid
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </AdminLayout>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
-
-  pageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingHorizontal: H_PAD,
-    paddingTop: 32,
-    paddingBottom: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  pageTitle:    { fontSize: 24, color: TXT, fontWeight: '700', letterSpacing: 0.2 },
-  pageSubtitle: { fontSize: 13, color: MUTED, marginTop: 2 },
-
-  refreshBtn:     { borderWidth: 1, borderColor: BORDER, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  refreshBtnText: { fontSize: 13, color: MUTED },
-
-  statsRow: { flexDirection: 'row', paddingHorizontal: H_PAD, paddingVertical: 16, gap: 12 },
-  statCard: {
-    flex: 1, borderWidth: 1, borderRadius: 12,
-    padding: 16, backgroundColor: CARD, gap: 6,
-  },
-  statLabel: { fontSize: 11, color: MUTED, letterSpacing: 0.5, textTransform: 'uppercase' },
-  statValue: { fontSize: 22, color: TXT, fontWeight: '700' },
-
-  filtersWrap:   { paddingHorizontal: H_PAD, paddingBottom: 16, borderBottomWidth: StyleSheet.hairlineWidth },
-  filterTabs:    { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  filterTab:     { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
-  filterTabText: { fontSize: 12 },
-
-  resultsRow:  { paddingHorizontal: H_PAD, paddingVertical: 10 },
-  resultsText: { fontSize: 12, color: MUTED },
-
-  tableWrap: {
-    marginHorizontal: H_PAD, borderWidth: 1, borderRadius: 12,
-    overflow: 'hidden', backgroundColor: CARD,
-  },
-
-  // Modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: H_PAD,
-  },
-  modalCard: {
-    width: '100%', maxWidth: 400,
-    backgroundColor: CARD, borderWidth: 1, borderRadius: 16,
-    padding: 24, gap: 16,
-  },
-  modalTitle:   { fontSize: 18, color: TXT, fontWeight: '700' },
-  modalLabel:   { fontSize: 12, color: MUTED, letterSpacing: 0.5 },
-  dateInput: {
-    borderWidth: 1, borderRadius: 10,
-    paddingHorizontal: 14, height: 44,
-    color: TXT, fontSize: 15,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  modalActions:  { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
-  modalBtn:      { borderWidth: 1, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 10 },
-  modalBtnText:  { fontSize: 14, fontWeight: '600' },
-});
