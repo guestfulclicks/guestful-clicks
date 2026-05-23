@@ -36,7 +36,7 @@ const DEFAULT_THEME = THEMES.midnight;
 
 const GOLD = '#D4A853';
 const GOLD_TINT = 'rgba(212,168,83,0.08)';
-const INPUT_SURFACE = 'rgba(255,255,255,0.06)';
+const INPUT_SURFACE = 'rgba(255,255,255,0.08)';
 const MAX_CHARS = 50;
 const H_PAD = 24;
 
@@ -253,7 +253,7 @@ export default function EventNameScreen() {
           <TextInput
             style={[styles.input, { color: theme.text, fontFamily: serif }]}
             placeholder="Enter your film title"
-            placeholderTextColor={`${theme.text}44`}
+            placeholderTextColor="rgba(255,255,255,0.4)"
             value={value}
             onChangeText={handleChange}
             maxLength={MAX_CHARS}

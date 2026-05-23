@@ -34,7 +34,7 @@ const WW        = '#F0E8D5';   // warm white
 const GOLD      = '#D4A853';
 const MUTED     = 'rgba(240,232,213,0.5)';
 const BORDER    = 'rgba(240,232,213,0.15)';
-const INPUT_BG  = 'rgba(255,255,255,0.07)';
+const INPUT_BG  = 'rgba(255,255,255,0.08)';
 const GOLD_T    = 'rgba(212,168,83,0.08)';
 const GOLD_SOFT = 'rgba(212,168,83,0.25)';
 
@@ -137,6 +137,7 @@ export default function GuestJoin() {
   const [guestName, setGuestName]       = useState('');
   const [joinedName, setJoinedName]     = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [nameFocused, setNameFocused]   = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   // STATE 3 animations
@@ -461,7 +462,7 @@ export default function GuestJoin() {
         <View style={s.inputSection}>
           <Text style={s.inputLabel}>What's your name?</Text>
           <TextInput
-            style={s.nameInput}
+            style={[s.nameInput, nameFocused && { borderColor: GOLD }]}
             value={guestName}
             onChangeText={setGuestName}
             placeholder="Enter your full name"
@@ -470,6 +471,8 @@ export default function GuestJoin() {
             autoCapitalize="words"
             returnKeyType="done"
             onSubmitEditing={canSubmit ? handleJoin : undefined}
+            onFocus={() => setNameFocused(true)}
+            onBlur={() => setNameFocused(false)}
           />
         </View>
 

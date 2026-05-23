@@ -33,7 +33,7 @@ const GOLD    = '#D4A853';
 const GOLD_T  = 'rgba(212,168,83,0.08)';
 const GOLD_B  = 'rgba(212,168,83,0.30)';
 const MUTED   = 'rgba(240,232,213,0.50)';
-const BORDER  = 'rgba(240,232,213,0.12)';
+const BORDER  = 'rgba(255,255,255,0.15)';
 const RED     = '#FF5252';
 const H_PAD   = 24;
 const PART_KEY = '@guestful_participant';
@@ -106,6 +106,8 @@ export default function PaywallScreen() {
   const [userName, setUserName]       = useState('');
   const [userPhone, setUserPhone]     = useState('');
   const [payError, setPayError]       = useState<string | null>(null);
+  const [nameFocused, setNameFocused] = useState(false);
+  const [phoneFocused, setPhoneFocused] = useState(false);
 
   // Success animation
   const checkScale = useRef(new Animated.Value(0)).current;
@@ -384,7 +386,7 @@ export default function PaywallScreen() {
 
         {/* Name + phone inputs */}
         <View style={sc.inputsWrap}>
-          <View style={[sc.inputRow, { borderColor: BORDER }]}>
+          <View style={[sc.inputRow, { borderColor: nameFocused ? GOLD : BORDER }]}>
             <Text style={sc.inputIcon}>👤</Text>
             <TextInput
               style={[sc.input, { fontFamily: serif }]}
@@ -394,10 +396,12 @@ export default function PaywallScreen() {
               onChangeText={setUserName}
               autoCapitalize="words"
               returnKeyType="next"
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
             />
           </View>
 
-          <View style={[sc.inputRow, { borderColor: BORDER }]}>
+          <View style={[sc.inputRow, { borderColor: phoneFocused ? GOLD : BORDER }]}>
             <Text style={sc.inputIcon}>📱</Text>
             <TextInput
               style={[sc.input, { fontFamily: serif }]}
@@ -408,6 +412,8 @@ export default function PaywallScreen() {
               keyboardType="phone-pad"
               returnKeyType="done"
               maxLength={15}
+              onFocus={() => setPhoneFocused(true)}
+              onBlur={() => setPhoneFocused(false)}
             />
           </View>
 
@@ -531,7 +537,7 @@ const sc = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     height: 52,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     gap: 10,
   },
   inputIcon: { fontSize: 16 },

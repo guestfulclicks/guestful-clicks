@@ -118,7 +118,11 @@ export default function SelectRole() {
 
       if (updateError) throw updateError;
 
-      router.replace('/create-event/event-type');
+      if (card.role === 'organiser') {
+        router.replace('/auth/organiser-signup');
+      } else {
+        router.replace('/create-event/event-type');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save role. Please try again.');
       setSaving(false);
