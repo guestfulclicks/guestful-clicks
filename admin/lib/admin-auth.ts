@@ -178,7 +178,7 @@ export async function signInAdmin(email: string, password: string): Promise<Admi
   return {
     id: authUser.id,
     email: userData.email,
-    name: userData.full_name,
+    full_name: userData.full_name,
     role: adminRole,
     permissions,
   };
@@ -271,7 +271,7 @@ export async function getAdminUser(): Promise<AdminUser | null> {
   return {
     id: userData.id,
     email: userData.email,
-    name: userData.full_name,
+    full_name: userData.full_name,
     role: adminRole,
     permissions,
   };

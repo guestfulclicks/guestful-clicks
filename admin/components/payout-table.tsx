@@ -1,24 +1,10 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const TXT    = '#F0E8D5';
-const MUTED  = 'rgba(240,232,213,0.5)';
-const BORDER = 'rgba(240,232,213,0.1)';
-const GOLD   = '#D4A853';
-const GREEN  = '#4CAF50';
-const BLUE   = '#5B8AF0';
-const RED    = '#FF5252';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+const GOLD  = '#D4A853';
+const GREEN = '#4CAF50';
+const BLUE  = '#5B8AF0';
+const RED   = '#FF5252';
+const MONO  = '"DM Mono", monospace';
 
 export type PayoutStatus = 'pending' | 'scheduled' | 'paid' | 'failed';
 
@@ -35,12 +21,10 @@ export interface PayoutTableRow {
 interface PayoutTableProps {
   payouts: PayoutTableRow[];
   loading?: boolean;
-  onSchedule?: (id: string) => void;
-  onMarkPaid?: (id: string) => void;
+  onSchedule?:  (id: string) => void;
+  onMarkPaid?:  (id: string) => void;
   onMarkFailed?: (id: string) => void;
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string): string {
   if (!iso) return '—';
@@ -62,141 +46,91 @@ function statusMeta(s: PayoutStatus): { label: string; color: string } {
   }
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+const th: React.CSSProperties = {
+  padding: '10px 14px', textAlign: 'left', fontSize: '10px', fontWeight: '600',
+  letterSpacing: '1.5px', color: 'rgba(240,232,213,0.5)', backgroundColor: '#141210',
+  fontFamily: MONO, whiteSpace: 'nowrap',
+};
+
+const td: React.CSSProperties = {
+  padding: '12px 14px', fontSize: '13px', color: '#F0E8D5',
+  fontFamily: MONO, borderBottom: '1px solid rgba(240,232,213,0.1)', whiteSpace: 'nowrap',
+};
 
 export function PayoutTable({ payouts, loading, onSchedule, onMarkPaid, onMarkFailed }: PayoutTableProps) {
   if (loading) {
     return (
-      <View style={t.loadWrap}>
-        <ActivityIndicator color={GOLD} size="small" />
-        <Text style={t.loadText}>Loading payouts...</Text>
-      </View>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '24px', color: 'rgba(240,232,213,0.5)', fontFamily: MONO, fontSize: '13px' }}>
+        <div style={{ width: '16px', height: '16px', border: `2px solid ${GOLD}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        Loading payouts…
+      </div>
     );
   }
 
   if (!payouts.length) {
     return (
-      <View style={t.emptyWrap}>
-        <Text style={t.emptyText}>No payouts found.</Text>
-      </View>
+      <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(240,232,213,0.5)', fontFamily: MONO, fontSize: '14px' }}>
+        No payouts found.
+      </div>
     );
   }
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={t.table}>
-        {/* Header */}
-        <View style={[t.row, t.headerRow]}>
-          <Text style={[t.cell, t.hCell, { width: 200 }]}>EVENT</Text>
-          <Text style={[t.cell, t.hCell, { width: 160 }]}>ORGANISER</Text>
-          <Text style={[t.cell, t.hCell, { width: 100 }]}>AMOUNT</Text>
-          <Text style={[t.cell, t.hCell, { width: 90  }]}>STATUS</Text>
-          <Text style={[t.cell, t.hCell, { width: 110 }]}>EVENT DATE</Text>
-          <Text style={[t.cell, t.hCell, { width: 110 }]}>SCHED. DATE</Text>
-          <Text style={[t.cell, t.hCell, { width: 180 }]}>ACTIONS</Text>
-        </View>
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: MONO }}>
+        <thead>
+          <tr>
+            {['Event', 'Organiser', 'Amount', 'Status', 'Event Date', 'Sched. Date', 'Actions'].map(h => (
+              <th key={h} style={th}>{h.toUpperCase()}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {payouts.map((po, idx) => {
+            const meta = statusMeta(po.status);
+            return (
+              <tr key={po.id} style={{ backgroundColor: idx % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent' }}>
+                <td style={{ ...td, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{po.event_title}</td>
+                <td style={{ ...td, maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{po.organiser_name}</td>
+                <td style={{ ...td, color: GOLD, fontWeight: '600' }}>{fmtINR(po.amount)}</td>
 
-        {/* Rows */}
-        {payouts.map((po, idx) => {
-          const meta = statusMeta(po.status);
-          return (
-            <View key={po.id} style={[t.row, idx % 2 === 1 && t.altRow]}>
-              <Text style={[t.cell, t.bodyCell, { width: 200 }]} numberOfLines={2}>
-                {po.event_title}
-              </Text>
-              <Text style={[t.cell, t.bodyCell, { width: 160 }]} numberOfLines={1}>
-                {po.organiser_name}
-              </Text>
-              <Text style={[t.cell, t.bodyCell, { width: 100, color: GOLD, fontWeight: '600' }]}>
-                {fmtINR(po.amount)}
-              </Text>
+                <td style={td}>
+                  <span style={{
+                    border: `1px solid ${meta.color}`, color: meta.color,
+                    fontSize: '10px', letterSpacing: '0.6px', fontWeight: '600',
+                    padding: '3px 10px', borderRadius: '20px',
+                  }}>
+                    {meta.label}
+                  </span>
+                </td>
 
-              <View style={[t.cell, { width: 90 }]}>
-                <View style={[t.statusPill, { borderColor: meta.color }]}>
-                  <Text style={[t.statusText, { color: meta.color }]}>{meta.label}</Text>
-                </View>
-              </View>
+                <td style={td}>{fmtDate(po.event_date)}</td>
+                <td style={td}>{fmtDate(po.scheduled_date)}</td>
 
-              <Text style={[t.cell, t.bodyCell, { width: 110 }]}>{fmtDate(po.event_date)}</Text>
-              <Text style={[t.cell, t.bodyCell, { width: 110 }]}>{fmtDate(po.scheduled_date)}</Text>
-
-              <View style={[t.cell, t.actionsCell, { width: 180 }]}>
-                {po.status === 'pending' && onSchedule && (
-                  <TouchableOpacity
-                    style={[t.actionBtn, { borderColor: BLUE }]}
-                    onPress={() => onSchedule(po.id)}
-                  >
-                    <Text style={[t.actionBtnText, { color: BLUE }]}>Schedule</Text>
-                  </TouchableOpacity>
-                )}
-                {(po.status === 'pending' || po.status === 'scheduled') && onMarkPaid && (
-                  <TouchableOpacity
-                    style={[t.actionBtn, { borderColor: GREEN }]}
-                    onPress={() => onMarkPaid(po.id)}
-                  >
-                    <Text style={[t.actionBtnText, { color: GREEN }]}>Mark Paid</Text>
-                  </TouchableOpacity>
-                )}
-                {po.status !== 'paid' && po.status !== 'failed' && onMarkFailed && (
-                  <TouchableOpacity
-                    style={[t.actionBtn, { borderColor: RED }]}
-                    onPress={() => onMarkFailed(po.id)}
-                  >
-                    <Text style={[t.actionBtnText, { color: RED }]}>Failed</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    </ScrollView>
+                <td style={td}>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {po.status === 'pending' && onSchedule && (
+                      <button onClick={() => onSchedule(po.id)} style={{ border: `1px solid ${BLUE}`, color: BLUE, backgroundColor: 'transparent', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontFamily: MONO }}>
+                        Schedule
+                      </button>
+                    )}
+                    {(po.status === 'pending' || po.status === 'scheduled') && onMarkPaid && (
+                      <button onClick={() => onMarkPaid(po.id)} style={{ border: `1px solid ${GREEN}`, color: GREEN, backgroundColor: 'transparent', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontFamily: MONO }}>
+                        Mark Paid
+                      </button>
+                    )}
+                    {po.status !== 'paid' && po.status !== 'failed' && onMarkFailed && (
+                      <button onClick={() => onMarkFailed(po.id)} style={{ border: `1px solid ${RED}`, color: RED, backgroundColor: 'transparent', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontFamily: MONO }}>
+                        Failed
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const t = StyleSheet.create({
-  loadWrap:  { flexDirection: 'row', alignItems: 'center', padding: 24, gap: 12 },
-  loadText:  { color: MUTED, fontSize: 13 },
-  emptyWrap: { padding: 24, alignItems: 'center' },
-  emptyText: { color: MUTED, fontSize: 14 },
-
-  table: { minWidth: '100%' },
-
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER,
-    minHeight: 52,
-  },
-  headerRow: { backgroundColor: '#141210', minHeight: 40 },
-  altRow:    { backgroundColor: 'rgba(255,255,255,0.015)' },
-
-  cell: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  hCell:    { fontSize: 10, letterSpacing: 1.5, color: MUTED, fontWeight: '600' },
-  bodyCell: { fontSize: 13, color: TXT },
-
-  statusPill: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  statusText: { fontSize: 10, letterSpacing: 0.6, fontWeight: '600' },
-
-  actionsCell: { gap: 6 },
-  actionBtn: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  actionBtnText: { fontSize: 11, letterSpacing: 0.5 },
-});

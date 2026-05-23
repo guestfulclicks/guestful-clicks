@@ -1,24 +1,8 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const BG     = '#0F0E0C';
-const CARD   = '#1A1714';
-const TXT    = '#F0E8D5';
-const MUTED  = 'rgba(240,232,213,0.5)';
-const BORDER = 'rgba(240,232,213,0.1)';
-const GOLD   = '#D4A853';
-const GREEN  = '#4CAF50';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+const GOLD  = '#D4A853';
+const GREEN = '#4CAF50';
+const MONO  = '"DM Mono", monospace';
 
 export interface EventTableRow {
   id: string;
@@ -40,8 +24,6 @@ interface EventTableProps {
   onView?:    (row: EventTableRow) => void;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function fmtDate(iso: string): string {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-').map(Number);
@@ -59,148 +41,102 @@ function statusColor(s: string): string {
   return '#888';
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+const th: React.CSSProperties = {
+  padding: '10px 14px', textAlign: 'left', fontSize: '10px', fontWeight: '600',
+  letterSpacing: '1.5px', color: 'rgba(240,232,213,0.5)', backgroundColor: '#141210',
+  fontFamily: MONO, whiteSpace: 'nowrap',
+};
+
+const td: React.CSSProperties = {
+  padding: '12px 14px', fontSize: '13px', color: '#F0E8D5',
+  fontFamily: MONO, borderBottom: '1px solid rgba(240,232,213,0.1)', whiteSpace: 'nowrap',
+};
 
 export function EventTable({ events, loading, onReveal, onArchive, onView }: EventTableProps) {
   if (loading) {
     return (
-      <View style={t.loadWrap}>
-        <ActivityIndicator color={GOLD} size="small" />
-        <Text style={t.loadText}>Loading events...</Text>
-      </View>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '24px', color: 'rgba(240,232,213,0.5)', fontFamily: MONO, fontSize: '13px' }}>
+        <div style={{ width: '16px', height: '16px', border: `2px solid ${GOLD}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        Loading events…
+      </div>
     );
   }
 
   if (!events.length) {
     return (
-      <View style={t.emptyWrap}>
-        <Text style={t.emptyText}>No events found.</Text>
-      </View>
+      <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(240,232,213,0.5)', fontFamily: MONO, fontSize: '14px' }}>
+        No events found.
+      </div>
     );
   }
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={t.table}>
-        {/* Header */}
-        <View style={[t.row, t.headerRow]}>
-          <Text style={[t.cell, t.hCell, { width: 220 }]}>EVENT</Text>
-          <Text style={[t.cell, t.hCell, { width: 80  }]}>TYPE</Text>
-          <Text style={[t.cell, t.hCell, { width: 100 }]}>DATE</Text>
-          <Text style={[t.cell, t.hCell, { width: 140 }]}>HOST</Text>
-          <Text style={[t.cell, t.hCell, { width: 80  }]}>STATUS</Text>
-          <Text style={[t.cell, t.hCell, { width: 70  }]}>GUESTS</Text>
-          <Text style={[t.cell, t.hCell, { width: 70  }]}>PHOTOS</Text>
-          <Text style={[t.cell, t.hCell, { width: 90  }]}>REVENUE</Text>
-          <Text style={[t.cell, t.hCell, { width: 140 }]}>ACTIONS</Text>
-        </View>
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: MONO }}>
+        <thead>
+          <tr>
+            {['Event', 'Type', 'Date', 'Host', 'Status', 'Guests', 'Photos', 'Revenue', 'Actions'].map(h => (
+              <th key={h} style={th}>{h.toUpperCase()}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {events.map((ev, idx) => (
+            <tr key={ev.id} style={{ backgroundColor: idx % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent' }}>
+              <td style={td}>
+                <span
+                  onClick={() => onView?.(ev)}
+                  style={{ fontWeight: '600', cursor: onView ? 'pointer' : 'default', color: '#F0E8D5' }}
+                >
+                  {ev.title}
+                </span>
+              </td>
 
-        {/* Rows */}
-        {events.map((ev, idx) => (
-          <View
-            key={ev.id}
-            style={[t.row, idx % 2 === 1 && t.altRow]}
-          >
-            <TouchableOpacity style={[t.cell, { width: 220 }]} onPress={() => onView?.(ev)}>
-              <Text style={t.titleCell} numberOfLines={2}>{ev.title}</Text>
-            </TouchableOpacity>
-
-            <View style={[t.cell, { width: 80 }]}>
-              <View style={[t.badge, { borderColor: ev.type === 'public' ? GOLD : MUTED }]}>
-                <Text style={[t.badgeText, { color: ev.type === 'public' ? GOLD : MUTED }]}>
+              <td style={td}>
+                <span style={{
+                  border: `1px solid ${ev.type === 'public' ? GOLD : 'rgba(240,232,213,0.5)'}`,
+                  color: ev.type === 'public' ? GOLD : 'rgba(240,232,213,0.5)',
+                  fontSize: '9px', letterSpacing: '0.8px', fontWeight: '600',
+                  padding: '2px 7px', borderRadius: '4px',
+                }}>
                   {ev.type.toUpperCase()}
-                </Text>
-              </View>
-            </View>
+                </span>
+              </td>
 
-            <Text style={[t.cell, t.bodyCell, { width: 100 }]}>{fmtDate(ev.date)}</Text>
-            <Text style={[t.cell, t.bodyCell, { width: 140 }]} numberOfLines={1}>{ev.host_name}</Text>
+              <td style={td}>{fmtDate(ev.date)}</td>
+              <td style={{ ...td, maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.host_name}</td>
 
-            <View style={[t.cell, { width: 80 }]}>
-              <View style={[t.statusDot, { backgroundColor: statusColor(ev.status) }]} />
-              <Text style={[t.bodyCell, { color: statusColor(ev.status) }]}>
-                {ev.status.charAt(0).toUpperCase() + ev.status.slice(1)}
-              </Text>
-            </View>
+              <td style={td}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: statusColor(ev.status), display: 'inline-block' }} />
+                  <span style={{ color: statusColor(ev.status) }}>
+                    {ev.status.charAt(0).toUpperCase() + ev.status.slice(1)}
+                  </span>
+                </span>
+              </td>
 
-            <Text style={[t.cell, t.bodyCell, t.numCell, { width: 70 }]}>{ev.guest_count}</Text>
-            <Text style={[t.cell, t.bodyCell, t.numCell, { width: 70 }]}>{ev.photo_count}</Text>
-            <Text style={[t.cell, t.bodyCell, t.numCell, { width: 90, color: GOLD }]}>
-              {fmtINR(ev.revenue)}
-            </Text>
+              <td style={{ ...td, textAlign: 'right' }}>{ev.guest_count}</td>
+              <td style={{ ...td, textAlign: 'right' }}>{ev.photo_count}</td>
+              <td style={{ ...td, textAlign: 'right', color: GOLD, fontWeight: '600' }}>{fmtINR(ev.revenue)}</td>
 
-            <View style={[t.cell, t.actionsCell, { width: 140 }]}>
-              {ev.status === 'active' && onReveal && (
-                <TouchableOpacity
-                  style={[t.actionBtn, { borderColor: GOLD }]}
-                  onPress={() => onReveal(ev.id)}
-                >
-                  <Text style={[t.actionBtnText, { color: GOLD }]}>Reveal</Text>
-                </TouchableOpacity>
-              )}
-              {ev.status !== 'archived' && onArchive && (
-                <TouchableOpacity
-                  style={[t.actionBtn, { borderColor: '#888' }]}
-                  onPress={() => onArchive(ev.id)}
-                >
-                  <Text style={[t.actionBtnText, { color: '#888' }]}>Archive</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+              <td style={td}>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {ev.status === 'active' && onReveal && (
+                    <button onClick={() => onReveal(ev.id)} style={{ border: `1px solid ${GOLD}`, color: GOLD, backgroundColor: 'transparent', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontFamily: MONO, letterSpacing: '0.5px' }}>
+                      Reveal
+                    </button>
+                  )}
+                  {ev.status !== 'archived' && onArchive && (
+                    <button onClick={() => onArchive(ev.id)} style={{ border: '1px solid #888', color: '#888', backgroundColor: 'transparent', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', fontFamily: MONO, letterSpacing: '0.5px' }}>
+                      Archive
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const t = StyleSheet.create({
-  loadWrap:  { flexDirection: 'row', alignItems: 'center', padding: 24, gap: 12 },
-  loadText:  { color: MUTED, fontSize: 13 },
-  emptyWrap: { padding: 24, alignItems: 'center' },
-  emptyText: { color: MUTED, fontSize: 14 },
-
-  table: { minWidth: '100%' },
-
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER,
-    minHeight: 52,
-  },
-  headerRow: { backgroundColor: '#141210', minHeight: 40 },
-  altRow:    { backgroundColor: 'rgba(255,255,255,0.015)' },
-
-  cell: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  hCell:    { fontSize: 10, letterSpacing: 1.5, color: MUTED, fontWeight: '600' },
-  bodyCell: { fontSize: 13, color: TXT },
-  numCell:  { justifyContent: 'flex-end' },
-  titleCell: { fontSize: 13, color: TXT, fontWeight: '600', lineHeight: 18 },
-
-  badge: {
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  badgeText: { fontSize: 9, letterSpacing: 0.8, fontWeight: '600' },
-
-  statusDot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
-
-  actionsCell: { gap: 6 },
-  actionBtn: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  actionBtnText: { fontSize: 11, letterSpacing: 0.5 },
-});

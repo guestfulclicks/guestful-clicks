@@ -102,7 +102,7 @@ export default function AnalyticsPage() {
     ]);
 
     const totalRevenue    = (revData ?? []).reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0);
-    const platformRevenue = totalRevenue * (REVENUE_SHARE?.platform ?? 0.25);
+    const platformRevenue = totalRevenue * (100 - REVENUE_SHARE.organiserPercent) / 100;
     const pendingPayouts  = (pendingData ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0);
 
     setStats({ totalEvents: totalEvents ?? 0, activeEvents: activeEvents ?? 0, totalUsers: totalUsers ?? 0, totalPhotos: totalPhotos ?? 0, totalRevenue, platformRevenue, pendingPayouts });
