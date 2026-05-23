@@ -1,5 +1,4 @@
 import * as Localization from 'expo-localization';
-import * as Crypto from 'expo-crypto';
 
 // ── generateShareCode ─────────────────────────────────────────────────────────
 // Generates an 8-character uppercase alphanumeric code for event sharing.
@@ -15,12 +14,16 @@ export function generateShareCode(): string {
 }
 
 // ── generateQRToken ───────────────────────────────────────────────────────────
-// Generates a 32-character lowercase hex string using random bytes.
-// Used for participant identification in guest join flow.
+// Generates a 32-character lowercase hex string for participant identification.
+// Used in guest join flow.
 
-export async function generateQRToken(): Promise<string> {
-  const bytes = await Crypto.getRandomBytes(16);
-  return bytes.toString('hex');
+export function generateQRToken(): string {
+  let token = '';
+  const hexChars = '0123456789abcdef';
+  for (let i = 0; i < 32; i++) {
+    token += hexChars[Math.floor(Math.random() * 16)];
+  }
+  return token;
 }
 
 // ── formatRevealDate ──────────────────────────────────────────────────────────
