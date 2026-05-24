@@ -10,19 +10,19 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import {
   useFonts,
   PlayfairDisplay_400Regular,
   PlayfairDisplay_700Bold,
 } from '@expo-google-fonts/playfair-display';
-import {
-  GoogleSignin,
-  statusCodes,
-  type NativeModuleError,
-} from '@react-native-google-signin/google-signin';
 import { supabase } from '../../supabase/client';
 
-// ── Theme ──────────────────────────────────────────────────────────────────
+// Required for iOS to close the browser after redirect
+WebBrowser.maybeCompleteAuthSession();
+
+// ── Theme ──────────────────────────────────────────────────────────────────────
 
 const THEME_STORAGE_KEY = '@guestful_onboarding_theme';
 
@@ -36,35 +36,7 @@ const THEMES: Record<string, { background: string; text: string }> = {
 
 const DEFAULT_THEME = THEMES.midnight;
 
-// ── Google config ──────────────────────────────────────────────────────────
-// Replace WEB_CLIENT_ID with your Google Cloud OAuth 2.0 web client ID
-// from https://console.cloud.google.com/apis/credentials
-const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '217626150651-pt6tptsl2i1mdt5sc8c0d4ekt31u0oh2.apps.googleusercontent.com';
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function isGoogleSignInError(e: unknown): e is NativeModuleError {
-  return typeof e === 'object' && e !== null && 'code' in e;
-}
-
-function humaniseError(e: unknown): string {
-  if (isGoogleSignInError(e)) {
-    switch (e.code) {
-      case statusCodes.SIGN_IN_CANCELLED:
-        return 'Sign-in was cancelled.';
-      case statusCodes.IN_PROGRESS:
-        return 'Sign-in already in progress.';
-      case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-        return 'Google Play Services not available on this device.';
-      default:
-        return `Google sign-in failed (${e.code}).`;
-    }
-  }
-  if (e instanceof Error) return e.message;
-  return 'Something went wrong. Please try again.';
-}
-
-// ── Sub-components ─────────────────────────────────────────────────────────
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
 function Logo({ color }: { color: string }) {
   return (
@@ -75,7 +47,6 @@ function Logo({ color }: { color: string }) {
   );
 }
 
-// Minimal Google "G" rendered purely with React Native primitives
 function GoogleG() {
   return (
     <View style={styles.googleG}>
@@ -84,7 +55,7 @@ function GoogleG() {
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────
+// ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function GoogleLogin() {
   const [theme, setTheme] = useState(DEFAULT_THEME);
@@ -99,19 +70,9 @@ export default function GoogleLogin() {
   const serif = fontsLoaded ? 'PlayfairDisplay_400Regular' : undefined;
   const serifBold = fontsLoaded ? 'PlayfairDisplay_700Bold' : undefined;
 
-  // Load saved theme
   useEffect(() => {
     AsyncStorage.getItem(THEME_STORAGE_KEY).then((key) => {
       if (key && THEMES[key]) setTheme(THEMES[key]);
-    });
-  }, []);
-
-  // Configure Google Sign-In once
-  useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: WEB_CLIENT_ID,
-      scopes: ['profile', 'email'],
-      offlineAccess: false,
     });
   }, []);
 
@@ -121,35 +82,55 @@ export default function GoogleLogin() {
     setLoading(true);
 
     try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      // Build the redirect URL — uses guestfulclicks:// scheme on device
+      const redirectUrl = Linking.createURL('/auth/callback');
 
-      const response = await GoogleSignin.signIn();
-
-      // v13+ returns { type, data } shape; older returns user directly
-      const userInfo =
-        'data' in response && response.data
-          ? response.data
-          : (response as any);
-
-      const idToken: string | null =
-        userInfo?.idToken ?? userInfo?.data?.idToken ?? null;
-
-      if (!idToken) throw new Error('No ID token received from Google.');
-
-      // ── Supabase auth ────────────────────────────────────────────────────
-      const { error: authError } = await supabase.auth.signInWithIdToken({
+      // Get the Google OAuth URL from Supabase
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        token: idToken,
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
+        },
       });
-      if (authError) throw authError;
 
-      // ── Get the current Supabase session user ────────────────────────────
-      const {
-        data: { user: sbUser },
-      } = await supabase.auth.getUser();
-      if (!sbUser) throw new Error('Could not retrieve authenticated user.');
+      if (oauthError) throw oauthError;
+      if (!data.url) throw new Error('Could not generate sign-in URL.');
 
-      // ── Upsert into custom users table ───────────────────────────────────
+      // Open Google sign-in in a browser inside the app
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        setError('Sign-in was cancelled.');
+        return;
+      }
+
+      if (result.type !== 'success') {
+        setError('Sign-in failed. Please try again.');
+        return;
+      }
+
+      // Parse access_token and refresh_token from the redirect URL hash
+      const url = result.url;
+      const hashPart = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? '';
+      const params = new URLSearchParams(hashPart);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token') ?? '';
+
+      if (!accessToken) throw new Error('No access token in redirect. Please try again.');
+
+      // Set the Supabase session from the tokens
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (sessionError) throw sessionError;
+
+      // Get the authenticated user
+      const { data: { user: sbUser }, error: userError } = await supabase.auth.getUser();
+      if (userError || !sbUser) throw userError ?? new Error('Could not retrieve user.');
+
+      // Upsert into custom users table if first sign-in
       const { data: existing } = await supabase
         .from('users')
         .select('id')
@@ -158,20 +139,16 @@ export default function GoogleLogin() {
 
       if (!existing) {
         const { error: insertError } = await supabase.from('users').insert({
-          id: sbUser.id,
-          full_name:
-            userInfo?.user?.name ??
-            sbUser.user_metadata?.full_name ??
-            '',
-          email: sbUser.email ?? '',
-          // role assigned on next screen
+          id:        sbUser.id,
+          full_name: sbUser.user_metadata?.full_name ?? sbUser.user_metadata?.name ?? '',
+          email:     sbUser.email ?? '',
         });
-        if (insertError) throw insertError;
+        if (insertError && insertError.code !== '23505') throw insertError;
       }
 
       router.replace('/auth/select-role');
     } catch (e) {
-      setError(humaniseError(e));
+      setError(e instanceof Error ? e.message : 'Sign-in failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -181,12 +158,10 @@ export default function GoogleLogin() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle="light-content" />
 
-      {/* Logo */}
       <View style={styles.logoWrap}>
         <Logo color={theme.text} />
       </View>
 
-      {/* Body */}
       <View style={styles.body}>
         <Text style={[styles.heading, { color: theme.text, fontFamily: serifBold }]}>
           Welcome to{'\n'}Guestful Clicks
@@ -196,7 +171,6 @@ export default function GoogleLogin() {
           Sign in to create and manage your events
         </Text>
 
-        {/* Google button */}
         <TouchableOpacity
           style={[styles.googleBtn, loading && styles.googleBtnDisabled]}
           onPress={handleGoogleSignIn}
@@ -215,17 +189,14 @@ export default function GoogleLogin() {
           )}
         </TouchableOpacity>
 
-        {/* Error message */}
         {error && (
           <Text style={[styles.errorText, { fontFamily: serif }]}>{error}</Text>
         )}
 
-        {/* Divider */}
         <View style={styles.dividerRow}>
           <View style={[styles.dividerLine, { backgroundColor: theme.text }]} />
         </View>
 
-        {/* QR hint */}
         <Text style={[styles.qrHint, { color: theme.text, fontFamily: serif }]}>
           Joining an event? Scan the QR code from your invite instead.
         </Text>
@@ -234,12 +205,10 @@ export default function GoogleLogin() {
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────
+// ── Styles ─────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
 
   logoWrap: {
     alignItems: 'center',
@@ -266,7 +235,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 32,
     justifyContent: 'center',
-    gap: 0,
     paddingBottom: 48,
   },
 
@@ -284,7 +252,6 @@ const styles = StyleSheet.create({
     marginBottom: 44,
   },
 
-  // Google button
   googleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -293,20 +260,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     height: 52,
     gap: 12,
-    // shadow
     ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.12,
-        shadowRadius: 3,
-      },
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3 },
       android: { elevation: 2 },
     }),
   },
-  googleBtnDisabled: {
-    opacity: 0.7,
-  },
+  googleBtnDisabled: { opacity: 0.7 },
   googleBtnText: {
     color: '#3C3C3C',
     fontSize: 15,
@@ -314,7 +273,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  // Google "G" mark
   googleG: {
     width: 22,
     height: 22,
@@ -331,7 +289,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  // Error
   errorText: {
     color: '#FF6B6B',
     fontSize: 13,
@@ -339,7 +296,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  // Divider
   dividerRow: {
     marginTop: 40,
     marginBottom: 20,
@@ -349,7 +305,6 @@ const styles = StyleSheet.create({
     opacity: 0.18,
   },
 
-  // QR hint
   qrHint: {
     fontSize: 13,
     lineHeight: 20,

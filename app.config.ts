@@ -15,13 +15,15 @@ const config: ExpoConfig = {
     backgroundColor: '#ffffff',
   },
   ios: {
+    bundleIdentifier: 'com.guestfulclicks.app',
     supportsTablet: true,
     associatedDomains: ['applinks:join.guestfulclicks.com'],
   },
   android: {
+    package: 'com.guestfulclicks.app',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#ffffff',
+      backgroundColor: '#0C0904',
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
@@ -49,6 +51,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-font',
+    'expo-web-browser',
     [
       'expo-notifications',
       {
@@ -56,6 +59,11 @@ const config: ExpoConfig = {
       },
     ],
   ],
+  extra: {
+    eas: {
+      projectId: '3a8bd998-025f-43aa-8cde-50a2e29bd682',
+    },
+  },
 };
 
 export default config;
