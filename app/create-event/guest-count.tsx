@@ -198,18 +198,10 @@ const pt = StyleSheet.create({
 
 // ── Pricing config fetch (with graceful fallback) ──────────────────────────
 
-async function fetchPricingConfig(role: UserRole) {
-  try {
-    const { data, error } = await supabase
-      .from('pricing_config')
-      .select('tier_key, price')
-      .eq('country_code', 'IN')
-      .eq('role', role);
-    if (error || !data?.length) return null;
-    return data as { tier_key: string; price: number }[];
-  } catch {
-    return null;
-  }
+async function fetchPricingConfig(_role: UserRole) {
+  // pricing_config is not queried at runtime — constants are used instead.
+  // This function is kept as a stub for future remote config support.
+  return null;
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────

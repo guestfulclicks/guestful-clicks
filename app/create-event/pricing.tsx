@@ -21,7 +21,7 @@ import {
 } from '@expo-google-fonts/playfair-display';
 import QRCode from 'react-native-qrcode-svg';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../supabase/client';
 import { useCreateEvent } from '../../shared/CreateEventContext';
 import { openRazorpayCheckout } from '../../shared/razorpay';
@@ -135,7 +135,7 @@ async function insertEvent(
     title:           draft.eventName,
     type:            role === 'organiser' ? 'public' : 'private',
     host_id:         userId,
-    date:            draft.eventDate || null,
+    event_date:      draft.eventDate || null,
     reveal_time:     draft.revealTime || null,
     event_end_time:  draft.eventEndTime || null,
     shot_limit:      role === 'organiser' ? SHOT_LIMITS.public99 : SHOT_LIMITS.privateGuest,
@@ -224,7 +224,7 @@ export default function PricingScreen() {
         await supabase.from('payouts').insert({
           event_id:       eventId,
           organiser_id:   userId,
-          amount:         0,          // grows as participants pay
+          total_collected: 0,          // grows as participants pay
           status:         'pending',
           scheduled_date: payoutDate.toISOString().split('T')[0],
         });
@@ -260,7 +260,7 @@ export default function PricingScreen() {
     }
     qrRef.current?.toDataURL(async (base64: string) => {
       try {
-        const fileUri = `${FileSystem.cacheDirectory}guestful_qr_${shareCode}.png`;
+        const fileUri = `${FileSystem.documentDirectory}guestful_qr_${shareCode}.png`;
         await FileSystem.writeAsStringAsync(fileUri, base64, {
           encoding: FileSystem.EncodingType.Base64,
         });

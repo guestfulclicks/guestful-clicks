@@ -1,7 +1,6 @@
-import { ExpoConfig, getDefaultConfig } from 'expo/config';
+import { ExpoConfig } from 'expo/config';
 
 const config: ExpoConfig = {
-  ...getDefaultConfig(__dirname),
   name: 'guestful-clicks',
   slug: 'guestful-clicks',
   version: '1.0.0',

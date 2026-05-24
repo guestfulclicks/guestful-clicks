@@ -26,7 +26,7 @@ import {
 } from '@expo-google-fonts/playfair-display';
 import QRCode from 'react-native-qrcode-svg';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../supabase/client';
 import { REVENUE_SHARE, PUBLIC_PARTICIPANT_PRICING } from '../../shared/constants';
 
@@ -67,7 +67,7 @@ type DashView = 'list' | 'event';
 interface EventRow {
   id: string;
   title: string;
-  date: string;
+  event_date: string;
   reveal_time: string;
   event_end_time: string | null;
   aesthetic: string;
@@ -104,7 +104,7 @@ interface ParticipantRow {
 
 interface PayoutRow {
   id: string;
-  amount: number;
+  total_collected: number;
   status: 'pending' | 'scheduled' | 'paid' | 'failed';
   scheduled_date: string;
 }
@@ -300,9 +300,9 @@ export default function OrganiserDashboard() {
   const loadEvents = useCallback(async (uid: string) => {
     const { data: evs } = await supabase
       .from('events')
-      .select('id, title, date, reveal_time, event_end_time, aesthetic, status, share_code, invitation_card')
+      .select('id, title, event_date, reveal_time, event_end_time, aesthetic, status, share_code, invitation_card')
       .eq('host_id', uid)
-      .order('date', { ascending: false });
+      .order('event_date', { ascending: false });
 
     if (!evs?.length) { setEvents([]); return; }
     setEvents(evs as EventRow[]);
@@ -338,22 +338,22 @@ export default function OrganiserDashboard() {
       ids.length
         ? supabase.from('participants').select('amount_paid').in('event_id', ids).gte('joined_at', firstOfMonth)
         : Promise.resolve({ data: [] }),
-      supabase.from('payouts').select('amount, scheduled_date, status')
+      supabase.from('payouts').select('total_collected, scheduled_date, status')
         .eq('organiser_id', uid).in('status', ['pending', 'scheduled'])
         .order('scheduled_date', { ascending: true }),
-      supabase.from('payouts').select('amount')
+      supabase.from('payouts').select('total_collected')
         .eq('organiser_id', uid).eq('status', 'paid'),
     ]);
 
     const thisMonth    = organiserShare((thisMonthParts ?? []).reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0));
-    const pendingTotal = (pending ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0);
-    const totalEarned  = (paid ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0);
+    const pendingTotal = (pending ?? []).reduce((s: number, r: any) => s + (r.total_collected ?? 0), 0);
+    const totalEarned  = (paid ?? []).reduce((s: number, r: any) => s + (r.total_collected ?? 0), 0);
 
     setEarnings({ thisMonth, pendingPayout: pendingTotal, totalEarned });
 
     const firstPending = (pending ?? []).find((p: any) => p.scheduled_date) ?? null;
     if (firstPending) {
-      setPendingInfo({ amount: firstPending.amount, scheduled_date: firstPending.scheduled_date });
+      setPendingInfo({ amount: firstPending.total_collected ?? 0, scheduled_date: firstPending.scheduled_date });
     }
   }, []);
 
@@ -373,7 +373,7 @@ export default function OrganiserDashboard() {
         .eq('event_id', ev.id)
         .order('joined_at', { ascending: false }),
       supabase.from('payouts')
-        .select('id, amount, status, scheduled_date')
+        .select('id, total_collected, status, scheduled_date')
         .eq('event_id', ev.id)
         .maybeSingle(),
     ]);
@@ -505,7 +505,7 @@ export default function OrganiserDashboard() {
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow gallery access to save the QR code.'); return; }
     qrRef.current?.toDataURL(async (base64: string) => {
       try {
-        const uri = `${FileSystem.cacheDirectory}guestful_poster_${selectedEvent?.share_code}.png`;
+        const uri = `${FileSystem.documentDirectory}guestful_poster_${selectedEvent?.share_code}.png`;
         await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
         await MediaLibrary.saveToLibraryAsync(uri);
         Alert.alert('Saved!', 'QR code saved to your gallery.');
@@ -526,7 +526,7 @@ export default function OrganiserDashboard() {
     let saved = 0;
     for (const photo of photos) {
       try {
-        const loc = `${FileSystem.cacheDirectory}guestful_${Date.now()}.jpg`;
+        const loc = `${FileSystem.documentDirectory}guestful_${Date.now()}.jpg`;
         await FileSystem.downloadAsync(photo.url, loc);
         await MediaLibrary.saveToLibraryAsync(loc);
         saved++;
@@ -663,7 +663,7 @@ export default function OrganiserDashboard() {
                         </Text>
                         <StatusPill status={ev.status} />
                       </View>
-                      <Text style={[sc.cardDate, { color: MUTED, fontFamily: serif }]}>{fmtDate(ev.date)}</Text>
+                      <Text style={[sc.cardDate, { color: MUTED, fontFamily: serif }]}>{fmtDate(ev.event_date)}</Text>
                       <View style={sc.cardStatsRow}>
                         <Text style={[sc.cardStat, { color: TXT, fontFamily: serif }]}>
                           👥 {cs.guestCount}
@@ -727,7 +727,7 @@ export default function OrganiserDashboard() {
             {selectedEvent.title}
           </Text>
           <View style={sc.eventMetaRow}>
-            <Text style={[sc.eventMeta, { color: MUTED, fontFamily: serif }]}>{fmtDate(selectedEvent.date)}</Text>
+            <Text style={[sc.eventMeta, { color: MUTED, fontFamily: serif }]}>{fmtDate(selectedEvent.event_date)}</Text>
             <StatusPill status={selectedEvent.status} />
           </View>
         </View>
@@ -826,7 +826,7 @@ export default function OrganiserDashboard() {
             <Text style={[sc.posterEventName, { fontFamily: serifBold }]} numberOfLines={2}>
               {selectedEvent.title}
             </Text>
-            <Text style={[sc.posterDate, { fontFamily: serif }]}>{fmtDate(selectedEvent.date)}</Text>
+            <Text style={[sc.posterDate, { fontFamily: serif }]}>{fmtDate(selectedEvent.event_date)}</Text>
 
             <View style={sc.posterQRWrap}>
               <QRCode

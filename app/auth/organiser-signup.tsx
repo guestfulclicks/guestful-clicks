@@ -358,7 +358,7 @@ export default function OrganiserSignup() {
         type: ['image/*'],
       });
 
-      if (!result.canceled && result.assets[0]) {
+      if (!result.canceled && result.assets?.[0]) {
         const updated = { ...draft, [field]: result.assets[0].uri };
         await saveDraft(updated);
       }
@@ -377,16 +377,16 @@ export default function OrganiserSignup() {
           draft.office_city.length > 0 &&
           draft.office_state.length > 0 &&
           draft.office_pincode.length > 0 &&
-          draft.address_proof_front_uri?.length > 0 &&
-          draft.address_proof_back_uri?.length > 0
+          (draft.address_proof_front_uri?.length ?? 0) > 0 &&
+          (draft.address_proof_back_uri?.length ?? 0) > 0
         );
       case 2:
         return (
           draft.pan_number.length === 10 &&
-          draft.pan_scan_uri?.length > 0 &&
+          (draft.pan_scan_uri?.length ?? 0) > 0 &&
           draft.aadhaar_number.length === 12 &&
-          draft.aadhaar_front_uri?.length > 0 &&
-          draft.aadhaar_back_uri?.length > 0
+          (draft.aadhaar_front_uri?.length ?? 0) > 0 &&
+          (draft.aadhaar_back_uri?.length ?? 0) > 0
         );
       case 3:
         return (
@@ -396,7 +396,7 @@ export default function OrganiserSignup() {
           draft.account_number === draft.account_number_confirm &&
           draft.ifsc_code.length > 0 &&
           draft.account_type.length > 0 &&
-          draft.cheque_uri?.length > 0 &&
+          (draft.cheque_uri?.length ?? 0) > 0 &&
           draft.upi_id.length > 0
         );
       case 4:

@@ -527,7 +527,7 @@ export default function AdminDashboard() {
       supabase.from('participants').select('amount_paid').gte('joined_at', yesterday).lt('joined_at', today),
       supabase.from('participants').select('amount_paid').gte('joined_at', month),
       supabase.from('participants').select('amount_paid').gte('joined_at', lmS).lte('joined_at', lmE),
-      supabase.from('payouts').select('amount').eq('status', 'pending'),
+      supabase.from('payouts').select('total_collected').eq('status', 'pending'),
       supabase.from('payouts').select('scheduled_date').eq('status', 'scheduled').order('scheduled_date', { ascending: true }).limit(1),
       supabase.from('events').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('users').select('role, created_at').gte('created_at', today),
@@ -542,7 +542,7 @@ export default function AdminDashboard() {
       if (da >= 0 && da < 7) sparkline[6 - da] += (p as any).amount_paid ?? 0;
     }
 
-    const sumAP = (arr: any[]) => (arr ?? []).reduce((s, r) => s + (r.amount_paid ?? r.amount ?? 0), 0);
+    const sumAP = (arr: any[]) => (arr ?? []).reduce((s, r) => s + (r.amount_paid ?? r.total_collected ?? 0), 0);
     const nu = newUsers ?? [];
 
     setStats({
@@ -587,8 +587,8 @@ export default function AdminDashboard() {
       supabase.from('events').select('id, title, created_at').order('created_at', { ascending: false }).limit(N),
       supabase.from('users').select('id, full_name, role, created_at').order('created_at', { ascending: false }).limit(N),
       supabase.from('participants').select('id, name, amount_paid, joined_at').order('joined_at', { ascending: false }).limit(N),
-      supabase.from('organiser_kyc').select('id, company_name, verification_status, score, updated_at').order('updated_at', { ascending: false }).limit(N),
-      supabase.from('payouts').select('id, amount, updated_at').order('updated_at', { ascending: false }).limit(N),
+      supabase.from('organiser_kyc').select('id, company_name, verification_status, ai_fraud_risk_score, updated_at').order('updated_at', { ascending: false }).limit(N),
+      supabase.from('payouts').select('id, total_collected, updated_at').order('updated_at', { ascending: false }).limit(N),
       supabase.from('events').select('id, title, updated_at').eq('status', 'revealed').order('updated_at', { ascending: false }).limit(N),
     ]);
 
@@ -604,10 +604,10 @@ export default function AdminDashboard() {
     for (const k of kyc ?? []) {
       const approved = (k as any).verification_status === 'approved';
       const flagged  = (k as any).verification_status === 'flagged';
-      if (approved) push((k as any).id + 'a', '✅', `${(k as any).company_name} KYC approved (score: ${(k as any).score ?? '—'})`, (k as any).updated_at, '/admin/kyc');
-      if (flagged)  push((k as any).id + 'f', '⚠️', `${(k as any).company_name} KYC needs review (score: ${(k as any).score ?? '—'})`, (k as any).updated_at, '/admin/kyc');
+      if (approved) push((k as any).id + 'a', '✅', `${(k as any).company_name} KYC approved (score: ${(k as any).ai_fraud_risk_score ?? '—'})`, (k as any).updated_at, '/admin/kyc');
+      if (flagged)  push((k as any).id + 'f', '⚠️', `${(k as any).company_name} KYC needs review (score: ${(k as any).ai_fraud_risk_score ?? '—'})`, (k as any).updated_at, '/admin/kyc');
     }
-    for (const po of pos  ?? []) push((po as any).id, '💸', `${fmtINR((po as any).amount ?? 0)} payout processed`, (po as any).updated_at, '/admin/payouts', (po as any).amount);
+    for (const po of pos  ?? []) push((po as any).id, '💸', `${fmtINR((po as any).total_collected ?? 0)} payout processed`, (po as any).updated_at, '/admin/payouts', (po as any).total_collected);
     for (const rv of revs ?? []) push((rv as any).id + 'r', '📷', `Gallery revealed — "${(rv as any).title}"`, (rv as any).updated_at, '/admin/events');
 
     items.sort((a, b) => b.ts - a.ts);

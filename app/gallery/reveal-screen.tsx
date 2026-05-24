@@ -25,7 +25,7 @@ import {
   PlayfairDisplay_700Bold,
 } from '@expo-google-fonts/playfair-display';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../supabase/client';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ interface EventData {
 }
 interface PhotoItem {
   id: string; url: string; participant_id: string; uploaded_at: string;
-  participants: { name: string; upload_count: number } | null;
+  participants: { name: string; upload_count: number } | { name: string; upload_count: number }[] | null;
 }
 interface Countdown { d: number; h: number; m: number; s: number; }
 
@@ -88,6 +88,12 @@ function fmtReveal(iso: string): string {
 }
 
 function pad(n: number): string { return String(n).padStart(2, '0'); }
+
+function getParticipant(p: PhotoItem['participants']): { name: string; upload_count: number } | null {
+  if (!p) return null;
+  if (Array.isArray(p)) return p[0] ?? null;
+  return p;
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -337,7 +343,7 @@ export default function RevealScreen() {
   const currentPhotos = useMemo<PhotoItem[]>(() => {
     if (activeTab === 'highlights')
       return [...galleryPhotos]
-        .sort((a, b) => (b.participants?.upload_count ?? 0) - (a.participants?.upload_count ?? 0))
+        .sort((a, b) => (getParticipant(b.participants)?.upload_count ?? 0) - (getParticipant(a.participants)?.upload_count ?? 0))
         .slice(0, Math.max(1, Math.ceil(galleryPhotos.length * 0.2)));
     if (activeTab === 'my')
       return galleryPhotos.filter(p => p.participant_id === participant?.id);
@@ -360,8 +366,8 @@ export default function RevealScreen() {
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') { Alert.alert('Permission needed', 'Allow gallery access to save photos.'); return; }
       const fn = `guestful_${Date.now()}.jpg`;
-      await FileSystem.downloadAsync(url, `${FileSystem.cacheDirectory}${fn}`);
-      await MediaLibrary.saveToLibraryAsync(`${FileSystem.cacheDirectory}${fn}`);
+      await FileSystem.downloadAsync(url, `${FileSystem.documentDirectory}${fn}`);
+      await MediaLibrary.saveToLibraryAsync(`${FileSystem.documentDirectory}${fn}`);
       Alert.alert('Saved!', 'Photo saved to your gallery.');
     } catch { Alert.alert('Error', 'Could not save photo.'); }
   };
@@ -378,8 +384,8 @@ export default function RevealScreen() {
     for (const photo of all) {
       try {
         const fn = `guestful_${Date.now()}.jpg`;
-        await FileSystem.downloadAsync(photo.url, `${FileSystem.cacheDirectory}${fn}`);
-        await MediaLibrary.saveToLibraryAsync(`${FileSystem.cacheDirectory}${fn}`);
+        await FileSystem.downloadAsync(photo.url, `${FileSystem.documentDirectory}${fn}`);
+        await MediaLibrary.saveToLibraryAsync(`${FileSystem.documentDirectory}${fn}`);
         saved++;
         setSavingProgress({ c: saved, t: all.length });
       } catch { /* continue */ }
@@ -674,7 +680,7 @@ export default function RevealScreen() {
           {/* Info bar */}
           <View style={s.lightboxInfo}>
             <Text style={s.lightboxGuest}>
-              📷 {currentPhotos[lightboxIndex]?.participants?.name ?? ''}
+              📷 {getParticipant(currentPhotos[lightboxIndex]?.participants)?.name ?? ''}
             </Text>
             <Text style={s.lightboxCount}>
               {lightboxIndex + 1} / {currentPhotos.length}

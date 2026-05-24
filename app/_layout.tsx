@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Stack, useNavigationContainerRef, LinkingOptions } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { PlayfairDisplay_400Regular, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import * as Notifications from 'expo-notifications';
@@ -8,23 +8,11 @@ import { supabase } from '../supabase/client';
 import { registerForPushNotifications } from '../shared/notifications';
 import type { UserRole } from '../shared/types';
 
-// ── Linking configuration for deep links ──────────────────────────────────────
-
-const linking: LinkingOptions<any> = {
-  prefixes: ['guestfulclicks://', 'https://join.guestfulclicks.com'],
-  config: {
-    screens: {
-      'guest/join': ':code',
-    },
-  },
-};
-
 // ── Root layout with auth and notification setup ───────────────────────────────
 
 export default function RootLayout() {
-  const navigationRef = useNavigationContainerRef();
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_400Regular,
@@ -52,11 +40,11 @@ export default function RootLayout() {
 
             // Redirect based on role
             if (role === 'host') {
-              navigationRef.navigate('dashboard/host-dashboard');
+              router.replace('dashboard/host-dashboard');
             } else if (role === 'organiser') {
-              navigationRef.navigate('dashboard/organiser-dashboard');
+              router.replace('dashboard/organiser-dashboard');
             } else if (role === 'admin') {
-              navigationRef.navigate('admin/events');
+              router.replace('admin/events');
             }
           }
         } else {
@@ -65,21 +53,21 @@ export default function RootLayout() {
 
           if (participant) {
             // Guest is returning — go to reveal screen
-            navigationRef.navigate('gallery/reveal-screen');
+            router.replace('gallery/reveal-screen');
           } else {
             // First time or not a guest — go to onboarding
-            navigationRef.navigate('onboarding/slides');
+            router.replace('onboarding/slides');
           }
         }
       } catch (error) {
         console.error('Auth check error:', error);
         // On error, default to onboarding
-        navigationRef.navigate('onboarding/slides');
+        router.replace('onboarding/slides');
       }
     };
 
     checkAuthAndNavigate();
-  }, [navigationRef]);
+  }, []);
 
   // ── Supabase auth state listener ──────────────────────────────────────────
 
@@ -97,17 +85,17 @@ export default function RootLayout() {
           if (userData) {
             const role = userData.role as UserRole;
             if (role === 'host') {
-              navigationRef.navigate('dashboard/host-dashboard');
+              router.replace('dashboard/host-dashboard');
             } else if (role === 'organiser') {
-              navigationRef.navigate('dashboard/organiser-dashboard');
+              router.replace('dashboard/organiser-dashboard');
             } else if (role === 'admin') {
-              navigationRef.navigate('admin/events');
+              router.replace('admin/events');
             }
           }
         } else if (event === 'SIGNED_OUT') {
           // User signed out — clear participant data and go to onboarding
           await AsyncStorage.removeItem('@guestful_participant');
-          navigationRef.navigate('onboarding/slides');
+          router.replace('onboarding/slides');
         }
       },
     );
@@ -115,7 +103,7 @@ export default function RootLayout() {
     return () => {
       subscription?.unsubscribe();
     };
-  }, [navigationRef]);
+  }, []);
 
   // ── Notification listeners ────────────────────────────────────────────────
 
@@ -136,7 +124,7 @@ export default function RootLayout() {
       (response) => {
         const type = response.notification.request.content.data.type as string;
         if (type === 'reveal') {
-          navigationRef.navigate('gallery/reveal-screen');
+          router.replace('gallery/reveal-screen');
         }
       },
     );
@@ -149,7 +137,7 @@ export default function RootLayout() {
         Notifications.removeNotificationSubscription(responseListener.current);
       }
     };
-  }, [navigationRef]);
+  }, []);
 
   if (!fontsLoaded) {
     return null; // Fonts loading — render nothing briefly
@@ -159,7 +147,6 @@ export default function RootLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animationEnabled: true,
       }}
     />
   );

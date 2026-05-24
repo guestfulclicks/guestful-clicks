@@ -147,8 +147,9 @@ export async function scanDocument(
     try {
       extractedData = JSON.parse(responseText);
       confidence = extractedData.confidence ? parseInt(extractedData.confidence as string) : 0;
-      isValid = extractedData[`is_valid_${documentType.replace(/_front|_back/, '')}`] === true ||
-                extractedData[`is_valid_${documentType.replace(/_front|_back/, '')}`] === 'true';
+      const validKey = `is_valid_${documentType.replace(/_front|_back/, '')}`;
+      const validVal = extractedData[validKey] as unknown;
+      isValid = validVal === true || validVal === 'true';
     } catch {
       throw new Error('Failed to parse Claude response as JSON');
     }

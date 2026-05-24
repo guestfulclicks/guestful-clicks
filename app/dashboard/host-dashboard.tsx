@@ -26,7 +26,7 @@ import {
 } from '@expo-google-fonts/playfair-display';
 import QRCode from 'react-native-qrcode-svg';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../supabase/client';
 import { sendImmediateNotification } from '../../shared/notifications';
 
@@ -57,7 +57,7 @@ interface EventRow {
   id: string;
   title: string;
   type: 'private' | 'public';
-  date: string;
+  event_date: string;
   reveal_time: string;
   aesthetic: string;
   status: 'active' | 'revealed' | 'archived';
@@ -256,9 +256,9 @@ export default function HostDashboard() {
 
     const { data: evs } = await supabase
       .from('events')
-      .select('id, title, type, date, reveal_time, aesthetic, status, share_code, invitation_card, pricing_tier, event_end_time')
+      .select('id, title, type, event_date, reveal_time, aesthetic, status, share_code, invitation_card, pricing_tier, event_end_time')
       .eq('host_id', user.id)
-      .order('date', { ascending: false });
+      .order('event_date', { ascending: false });
 
     if (!evs?.length) return;
     setEvents(evs as EventRow[]);
@@ -379,7 +379,7 @@ export default function HostDashboard() {
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow gallery access to save the QR code.'); return; }
     qrRef.current?.toDataURL(async (base64: string) => {
       try {
-        const uri = `${FileSystem.cacheDirectory}guestful_qr_${selectedEvent?.share_code}.png`;
+        const uri = `${FileSystem.documentDirectory}guestful_qr_${selectedEvent?.share_code}.png`;
         await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
         await MediaLibrary.saveToLibraryAsync(uri);
         Alert.alert('Saved!', 'QR code saved to your gallery.');
@@ -408,7 +408,7 @@ export default function HostDashboard() {
     for (const photo of photos) {
       try {
         const fn  = `guestful_${Date.now()}.jpg`;
-        const loc = `${FileSystem.cacheDirectory}${fn}`;
+        const loc = `${FileSystem.documentDirectory}${fn}`;
         await FileSystem.downloadAsync(photo.url, loc);
         await MediaLibrary.saveToLibraryAsync(loc);
         saved++;
@@ -505,7 +505,7 @@ export default function HostDashboard() {
                       <StatusPill status={item.status} />
                     </View>
                     <Text style={[sc.cardDate, { color: TXT, fontFamily: serif, opacity: 0.55 }]}>
-                      {fmtDate(item.date)}
+                      {fmtDate(item.event_date)}
                     </Text>
                     <View style={sc.cardStatsRow}>
                       <Text style={[sc.cardStat, { color: GOLD, fontFamily: serif }]}>

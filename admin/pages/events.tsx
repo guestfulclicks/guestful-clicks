@@ -61,7 +61,7 @@ interface Photo {
 }
 
 interface PayoutInfo {
-  id: string; amount: number; status: string; scheduled_date: string | null;
+  id: string; total_collected: number; status: string; scheduled_date: string | null;
 }
 
 interface EventDetail {
@@ -832,7 +832,7 @@ export default function EventsPage() {
     setLoading(true);
     const { data: evs } = await supabase
       .from('events')
-      .select('id,title,type,status,date,end_time,host_id,guest_count,share_code,reveal_time,shot_limit,aesthetic,country,city,state,cover_image_url,created_at')
+      .select('id,title,type,status,event_date,event_end_time,host_id,guest_count,share_code,reveal_time,shot_limit,aesthetic,country,city,state,cover_image,created_at')
       .order('created_at', { ascending: false });
 
     if (!evs?.length) { setEvents([]); setLoading(false); return; }
@@ -845,14 +845,14 @@ export default function EventsPage() {
       ]);
       return {
         id: ev.id, title: ev.title, type: ev.type, status: ev.status,
-        date: ev.date, end_time: ev.end_time ?? null,
+        date: ev.event_date, end_time: ev.event_end_time ?? null,
         host_id: ev.host_id,
         host_name:  (host as any)?.full_name ?? '—',
         host_email: (host as any)?.email    ?? '',
         country: ev.country ?? null, city: ev.city ?? null, state: ev.state ?? null,
         share_code: ev.share_code ?? null, reveal_time: ev.reveal_time ?? null,
         shot_limit: ev.shot_limit ?? 18, aesthetic: ev.aesthetic ?? null,
-        cover_image: ev.cover_image_url ?? null,
+        cover_image: ev.cover_image ?? null,
         guest_count: ev.guest_count ?? 0, photo_count: pc ?? 0,
         revenue: ((paid ?? []) as any[]).reduce((s, r) => s + (r.amount_paid ?? 0), 0),
         created_at: ev.created_at,
@@ -874,7 +874,7 @@ export default function EventsPage() {
     ] = await Promise.all([
       supabase.from('participants').select('id,name,tier,shots_used,upload_count,amount_paid,joined_at,qr_token,user_id').eq('event_id', eventId),
       supabase.from('photos').select('id,url,uploaded_at,is_revealed,participant_id').eq('event_id', eventId).order('uploaded_at', { ascending: false }),
-      supabase.from('payouts').select('id,amount,status,scheduled_date').eq('event_id', eventId).maybeSingle(),
+      supabase.from('payouts').select('id,total_collected,status,scheduled_date').eq('event_id', eventId).maybeSingle(),
     ]);
 
     const pMap: Record<string, string> = {};
