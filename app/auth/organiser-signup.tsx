@@ -913,6 +913,10 @@ export default function OrganiserSignup() {
                 {disclaimer || 'By submitting your KYC, you certify that all information is true and accurate.'}
               </Text>
 
+              <Text style={styles.disclaimerText}>
+                Payout Policy: Your earnings are processed monthly after applicable statutory deductions as required by your country's financial and tax laws. A detailed payout statement showing gross earnings, deductions, and net amount will be shared with you before every transfer. By proceeding you agree to this payout process.
+              </Text>
+
               <TouchableOpacity
                 style={styles.checkbox}
                 onPress={() => saveDraft({ ...draft, terms_accepted: !draft.terms_accepted })}
