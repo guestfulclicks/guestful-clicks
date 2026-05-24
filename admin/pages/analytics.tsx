@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import { supabase } from '../lib/supabase';
 import AdminLayout from '../components/admin-layout';
-import { REVENUE_SHARE } from '../../shared/constants';
+import { REVENUE_SHARE } from '../lib/constants';
 import { getCountryFlag, getCurrencyByCountryCode } from '../lib/location-api';
 
 const GOLD   = '#D4A853';

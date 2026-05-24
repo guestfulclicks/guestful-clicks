@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import AdminLayout from '../components/admin-layout';
-import { REVENUE_SHARE } from '../../shared/constants';
+import { REVENUE_SHARE } from '../lib/constants';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

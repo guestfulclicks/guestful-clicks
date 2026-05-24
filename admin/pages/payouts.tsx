@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import { supabase } from '../lib/supabase';
 import AdminLayout from '../components/admin-layout';
-import { REVENUE_SHARE } from '../../shared/constants';
+import { REVENUE_SHARE } from '../lib/constants';
 import {
   getAllCountries,
   getStatesByCountry,

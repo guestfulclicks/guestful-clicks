@@ -16,7 +16,7 @@ import {
   PUBLIC_PARTICIPANT_PRICING,
   SHOT_LIMITS,
   REVENUE_SHARE,
-} from '../../shared/constants';
+} from '../lib/constants';
 
 const GOLD  = '#D4A853';
 const SERIF = '"Playfair Display", serif';
