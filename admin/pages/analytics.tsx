@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import { supabase } from '../lib/supabase';
 import AdminLayout from '../components/admin-layout';
 import { REVENUE_SHARE } from '../../shared/constants';
+import { getCountryFlag, getCurrencyByCountryCode } from '../lib/location-api';
 
 const GOLD   = '#D4A853';
 const SERIF  = '"Playfair Display", serif';
@@ -30,13 +31,6 @@ function monthLabel(iso: string) {
 
 function shortMonth(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { month: 'short' });
-}
-
-function countryFlag(code: string) {
-  if (!code || code.length !== 2) return '';
-  const c = code.toUpperCase();
-  return String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65) +
-         String.fromCodePoint(0x1F1E6 + c.charCodeAt(1) - 65);
 }
 
 function periodStart(p: Period): Date {
@@ -355,9 +349,17 @@ function exportSummaryPdf(kpi: any, period: string) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
-  const [loading,   setLoading]   = useState(true);
-  const [period,    setPeriod]    = useState<Period>('30d');
-  const [geo,       setGeo]       = useState<GeoFilter>({ country: '', state: '', city: '' });
+  const [loading,    setLoading]    = useState(true);
+  const [period,     setPeriod]     = useState<Period>('30d');
+  const [geo,        setGeo]        = useState<GeoFilter>({ country: '', state: '', city: '' });
+  const [currSymbol, setCurrSymbol] = useState('₹');
+
+  useEffect(() => {
+    if (!geo.country) { setCurrSymbol('₹'); return; }
+    getCurrencyByCountryCode(geo.country).then(c => {
+      if (c.symbol) setCurrSymbol(c.symbol);
+    });
+  }, [geo.country]);
 
   // Raw data
   const [events,       setEvents]       = useState<any[]>([]);
@@ -720,7 +722,7 @@ export default function AnalyticsPage() {
                 {revenueByCountry.length === 0
                   ? <div style={{ color: '#bbb', fontFamily: MONO, fontSize: '12px' }}>No data</div>
                   : revenueByCountry.map(d => (
-                      <HorizBar key={d.country} label={`${countryFlag(d.country)} ${d.country}`} value={Math.round(d.revenue)} max={revenueByCountry[0]?.revenue ?? 1} prefix="₹" />
+                      <HorizBar key={d.country} label={`${getCountryFlag(d.country)} ${d.country}`} value={Math.round(d.revenue)} max={revenueByCountry[0]?.revenue ?? 1} prefix="₹" />
                     ))
                 }
               </div>
@@ -869,7 +871,7 @@ export default function AnalyticsPage() {
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#FAFAF8'}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = geo.country === d.country ? `${GOLD}10` : 'transparent'}
                       >
-                        <td style={{ ...tdS, fontSize: '11px' }}>{countryFlag(d.country)} {d.country}</td>
+                        <td style={{ ...tdS, fontSize: '11px' }}>{getCountryFlag(d.country)} {d.country}</td>
                         <td style={{ ...tdS, fontSize: '11px' }}>{d.events}</td>
                         <td style={{ ...tdS, fontSize: '11px', color: GOLD, fontWeight: '600' }}>{fmtINR(d.revenue)}</td>
                       </tr>

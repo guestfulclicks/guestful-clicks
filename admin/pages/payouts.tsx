@@ -4,6 +4,15 @@ import jsPDF from 'jspdf';
 import { supabase } from '../lib/supabase';
 import AdminLayout from '../components/admin-layout';
 import { REVENUE_SHARE } from '../../shared/constants';
+import {
+  getAllCountries,
+  getStatesByCountry,
+  getCitiesByState,
+  getCurrencyByCountryCode,
+  getCountryFlag,
+  type Country,
+} from '../lib/location-api';
+import { logAdminActivity } from '../lib/admin-activity';
 
 const GOLD  = '#D4A853';
 const SERIF = '"Playfair Display", serif';
@@ -224,7 +233,7 @@ function exportExcel(rows: PayoutRow[], month: number, year: number) {
 
 // ── Payment Modal ─────────────────────────────────────────────────────────────
 
-function PaymentModal({ row, onClose, onPaid }: { row: PayoutRow; onClose: () => void; onPaid: () => void }) {
+function PaymentModal({ row, adminId, onClose, onPaid }: { row: PayoutRow; adminId: string; onClose: () => void; onPaid: () => void }) {
   const [mode,          setMode]         = useState<PayMode>(row.upi_id ? 'UPI' : 'NEFT');
   const [utr,           setUtr]          = useState('');
   const [payDate,       setPayDate]      = useState(new Date().toISOString().split('T')[0]);
@@ -256,6 +265,7 @@ function PaymentModal({ row, onClose, onPaid }: { row: PayoutRow; onClose: () =>
       is_read: false,
     });
     generateStatement({ ...row, utr_reference: utr, payment_date: payDate, payment_mode: mode }, `${MONTHS[new Date().getMonth()]} ${new Date().getFullYear()}`);
+    logAdminActivity(adminId, 'payout_paid', 'payout', row.id, { organiser: row.organiser_name, amount: row.net_payable, utr });
     setBusy(false);
     onPaid();
   };
@@ -357,7 +367,7 @@ function PaymentModal({ row, onClose, onPaid }: { row: PayoutRow; onClose: () =>
 
 // ── Hold Modal ────────────────────────────────────────────────────────────────
 
-function HoldModal({ row, onClose, onHeld }: { row: PayoutRow; onClose: () => void; onHeld: () => void }) {
+function HoldModal({ row, adminId, onClose, onHeld }: { row: PayoutRow; adminId: string; onClose: () => void; onHeld: () => void }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -372,6 +382,7 @@ function HoldModal({ row, onClose, onHeld }: { row: PayoutRow; onClose: () => vo
       message: `Your payout for ${row.event_title} is currently on hold. Reason: ${reason}. Contact support@guestfulclicks.com`,
       is_read: false,
     });
+    logAdminActivity(adminId, 'payout_held', 'payout', row.id, { organiser: row.organiser_name, reason });
     setBusy(false);
     onHeld();
   };
@@ -408,9 +419,38 @@ export default function PayoutsPage() {
   const [loading,      setLoading]      = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [countryFilter,setCountryFilter]= useState('');
+  const [stateFilter,  setStateFilter]  = useState('');
+  const [cityFilter,   setCityFilter]   = useState('');
   const [orgSearch,    setOrgSearch]    = useState('');
   const [payModal,     setPayModal]     = useState<PayoutRow | null>(null);
   const [holdModal,    setHoldModal]    = useState<PayoutRow | null>(null);
+  const [adminId,      setAdminId]      = useState('');
+
+  const [allCountries, setAllCountries] = useState<Country[]>([]);
+  const [allStates,    setAllStates]    = useState<string[]>([]);
+  const [allCities,    setAllCities]    = useState<string[]>([]);
+  const [currSymbol,   setCurrSymbol]   = useState('₹');
+
+  // Load country list + admin id once
+  useEffect(() => {
+    getAllCountries().then(setAllCountries);
+    import('../lib/admin-auth').then(({ getAdminUser }) => getAdminUser().then(u => { if (u) setAdminId(u.id); }));
+  }, []);
+
+  // Load states when country filter changes
+  useEffect(() => {
+    setStateFilter(''); setCityFilter(''); setAllStates([]); setAllCities([]);
+    if (!countryFilter) { setCurrSymbol('₹'); return; }
+    getStatesByCountry(countryFilter).then(setAllStates);
+    getCurrencyByCountryCode(countryFilter).then(c => { if (c.symbol) setCurrSymbol(c.symbol); });
+  }, [countryFilter]);
+
+  // Load cities when state filter changes
+  useEffect(() => {
+    setCityFilter(''); setAllCities([]);
+    if (!stateFilter) return;
+    getCitiesByState(countryFilter, stateFilter).then(setAllCities);
+  }, [stateFilter, countryFilter]);
 
   const FILTER_STATUSES: { label: string; value: StatusFilter }[] = [
     { label: 'All',     value: 'all'     },
@@ -525,6 +565,8 @@ export default function PayoutsPage() {
   const visible = rows.filter(r => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
     if (countryFilter && r.country !== countryFilter) return false;
+    if (stateFilter   && r.state   !== stateFilter)   return false;
+    if (cityFilter    && r.city    !== cityFilter)     return false;
     if (orgSearch) {
       const q = orgSearch.toLowerCase();
       if (!r.organiser_name.toLowerCase().includes(q) && !r.company_name.toLowerCase().includes(q)) return false;
@@ -538,7 +580,7 @@ export default function PayoutsPage() {
   const totalTDS    = visible.reduce((s, r) => s + r.tds_amount, 0);
   const totalNet    = visible.reduce((s, r) => s + r.net_payable, 0);
 
-  const countries = [...new Set(rows.map(r => r.country).filter(Boolean))].sort();
+  const countriesInRows = [...new Set(rows.map(r => r.country).filter(Boolean))].sort();
 
   const inputS: React.CSSProperties = { padding: '8px 12px', border: '1px solid #E8E3DC', borderRadius: '8px', fontSize: '12px', fontFamily: MONO, color: '#333', backgroundColor: '#fff' };
   const thS: React.CSSProperties   = { padding: '10px 14px', textAlign: 'left' as const, fontSize: '10px', fontWeight: '600', letterSpacing: '1px', color: '#888', textTransform: 'uppercase' as const, backgroundColor: '#F5F3EF', whiteSpace: 'nowrap' as const };
@@ -576,8 +618,24 @@ export default function PayoutsPage() {
           {/* Country */}
           <select style={inputS} value={countryFilter} onChange={e => setCountryFilter(e.target.value)}>
             <option value="">All Countries</option>
-            {countries.map(c => <option key={c} value={c}>{c}</option>)}
+            {(allCountries.length > 0 ? allCountries.map(c => c.name) : countriesInRows).map(c => (
+              <option key={c} value={c}>{getCountryFlag(allCountries.find(x => x.name === c)?.iso2 ?? '')} {c}</option>
+            ))}
           </select>
+          {/* State */}
+          {allStates.length > 0 && (
+            <select style={inputS} value={stateFilter} onChange={e => setStateFilter(e.target.value)}>
+              <option value="">All States</option>
+              {allStates.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
+          {/* City */}
+          {allCities.length > 0 && (
+            <select style={inputS} value={cityFilter} onChange={e => setCityFilter(e.target.value)}>
+              <option value="">All Cities</option>
+              {allCities.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
           {/* Org search */}
           <input style={{ ...inputS, flex: 1, minWidth: '180px' }} placeholder="Search organiser or company…" value={orgSearch} onChange={e => setOrgSearch(e.target.value)} />
           {/* Excel export */}
@@ -664,8 +722,8 @@ export default function PayoutsPage() {
       </div>
 
       {/* Modals */}
-      {payModal  && <PaymentModal row={payModal}  onClose={() => setPayModal(null)}  onPaid={handleRefresh}  />}
-      {holdModal && <HoldModal    row={holdModal} onClose={() => setHoldModal(null)} onHeld={handleRefresh} />}
+      {payModal  && <PaymentModal row={payModal}  adminId={adminId} onClose={() => setPayModal(null)}  onPaid={handleRefresh}  />}
+      {holdModal && <HoldModal    row={holdModal} adminId={adminId} onClose={() => setHoldModal(null)} onHeld={handleRefresh} />}
     </AdminLayout>
   );
 }
