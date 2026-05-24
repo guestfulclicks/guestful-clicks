@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import { supabase } from '../lib/supabase';
@@ -346,6 +346,295 @@ function exportSummaryPdf(kpi: any, period: string) {
   doc.save(`GuestfulClicks_Analytics_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
+// ── Live Event Map ────────────────────────────────────────────────────────────
+
+const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8a8a9a' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
+  { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: '#2a2a4a' }] },
+  { featureType: 'administrative.country', elementType: 'labels.text.fill', stylers: [{ color: '#c8b98a' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#c8b98a' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#b5a880' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#0f1f1f' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#4a6741' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e4a' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1a30' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#7a7a9a' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3a3a5a' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#2a2a4a' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#a09870' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2e2e4a' }] },
+  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#b5a880' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a0f1e' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3d5a6a' }] },
+  { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#0a0f1e' }] },
+];
+
+interface PlottedEvent {
+  id: string; title: string; type: string; status: string;
+  country: string; state: string; city: string; date: string;
+  lat: number; lng: number; participantCount: number;
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function mapPinColor(status: string) {
+  if (status === 'active') return '#D4A853';
+  if (status === 'completed') return '#AAAAAA';
+  return '#FFFFFF';
+}
+
+function mapPinSvg(status: string, r: number): string {
+  const color = mapPinColor(status);
+  const pulse = status === 'active';
+  const dim = pulse ? r * 4 : r * 2;
+  const svg = pulse
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="${dim}" height="${dim}" viewBox="0 0 ${dim} ${dim}"><circle cx="${dim/2}" cy="${dim/2}" r="${r*1.8}" fill="${color}" opacity="0.25"><animate attributeName="r" values="${r*1.2};${r*1.8};${r*1.2}" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0.1;0.4" dur="1.5s" repeatCount="indefinite"/></circle><circle cx="${dim/2}" cy="${dim/2}" r="${r}" fill="${color}" stroke="#000" stroke-width="1"/></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="${dim}" height="${dim}" viewBox="0 0 ${dim} ${dim}"><circle cx="${r}" cy="${r}" r="${r-1}" fill="${color}" stroke="#000" stroke-width="1"/></svg>`;
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
+
+function clusterSvg(count: number): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#D4A853" opacity="0.2"/><circle cx="24" cy="24" r="16" fill="#D4A853" opacity="0.5"/><circle cx="24" cy="24" r="10" fill="#D4A853"/><text x="24" y="28" text-anchor="middle" fill="#0C0904" font-size="10" font-family="monospace" font-weight="bold">${count}</text></svg>`;
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
+
+function LiveEventMap() {
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const infoWindowRef = useRef<any>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [mapEvents, setMapEvents] = useState<PlottedEvent[]>([]);
+  const [mapLoading, setMapLoading] = useState(true);
+  const [mapError, setMapError] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterCountry, setFilterCountry] = useState('');
+  const [zoom, setZoom] = useState(4);
+
+  const loadMapEvents = useCallback(async () => {
+    const { data: evData } = await supabase
+      .from('events')
+      .select('id, title, type, status, country, state, city, date, latitude, longitude')
+      .order('date', { ascending: false });
+    if (!evData) return;
+
+    const { data: ptData } = await supabase.from('participants').select('event_id');
+    const ptCount: Record<string, number> = {};
+    (ptData ?? []).forEach((p: any) => { ptCount[p.event_id] = (ptCount[p.event_id] ?? 0) + 1; });
+
+    const toGeocode = evData.filter((e: any) => !e.latitude || !e.longitude).slice(0, 15);
+    const geocoded: Record<string, { lat: number; lng: number }> = {};
+    for (const e of toGeocode) {
+      const addr = [e.city, e.state, e.country].filter(Boolean).join(', ');
+      if (!addr) continue;
+      try {
+        const cacheKey = `geocode_${addr}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const { value, expiry } = JSON.parse(cached);
+          if (Date.now() < expiry) { geocoded[e.id] = value; continue; }
+        }
+        const resp = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${MAPS_KEY}`);
+        const json = await resp.json();
+        if (json.results?.[0]?.geometry?.location) {
+          const loc = json.results[0].geometry.location as { lat: number; lng: number };
+          geocoded[e.id] = { lat: loc.lat, lng: loc.lng };
+          localStorage.setItem(cacheKey, JSON.stringify({ value: { lat: loc.lat, lng: loc.lng }, expiry: Date.now() + 86400000 }));
+          await supabase.from('events').update({ latitude: loc.lat, longitude: loc.lng }).eq('id', e.id);
+        }
+      } catch { /* ignore geocode failures */ }
+    }
+
+    const plotted: PlottedEvent[] = evData
+      .map((e: any) => {
+        const lat = e.latitude ?? geocoded[e.id]?.lat;
+        const lng = e.longitude ?? geocoded[e.id]?.lng;
+        if (!lat || !lng) return null;
+        return { id: e.id, title: e.title ?? 'Untitled', type: e.type ?? '', status: e.status ?? '', country: e.country ?? '', state: e.state ?? '', city: e.city ?? '', date: e.date ?? '', lat, lng, participantCount: ptCount[e.id] ?? 0 };
+      })
+      .filter(Boolean) as PlottedEvent[];
+
+    setMapEvents(plotted);
+    setMapLoading(false);
+  }, []);
+
+  useEffect(() => {
+    let attempts = 0;
+    const poll = setInterval(() => {
+      attempts++;
+      if ((window as any).google?.maps) {
+        clearInterval(poll);
+        if (!mapDivRef.current) return;
+        const map = new (window as any).google.maps.Map(mapDivRef.current, {
+          center: { lat: 20, lng: 78 },
+          zoom: 4,
+          styles: DARK_MAP_STYLE,
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          backgroundColor: '#1a1a2e',
+        });
+        mapInstanceRef.current = map;
+        map.addListener('zoom_changed', () => setZoom(map.getZoom() ?? 4));
+        infoWindowRef.current = new (window as any).google.maps.InfoWindow();
+        loadMapEvents();
+      } else if (attempts > 75) {
+        clearInterval(poll);
+        setMapError('Google Maps failed to load.');
+        setMapLoading(false);
+      }
+    }, 200);
+    return () => clearInterval(poll);
+  }, [loadMapEvents]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('live_event_map')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => loadMapEvents())
+      .subscribe();
+    pollRef.current = setInterval(loadMapEvents, 60000);
+    return () => {
+      supabase.removeChannel(channel);
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [loadMapEvents]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !(window as any).google?.maps) return;
+    markersRef.current.forEach((m: any) => m.setMap(null));
+    markersRef.current = [];
+    if (infoWindowRef.current) infoWindowRef.current.close();
+
+    const filtered = mapEvents.filter(e => {
+      if (filterStatus && e.status !== filterStatus) return false;
+      if (filterType && e.type !== filterType) return false;
+      if (filterCountry && e.country !== filterCountry) return false;
+      return true;
+    });
+
+    const G = (window as any).google.maps;
+
+    if (zoom < 4) {
+      const clusters: Record<string, { lat: number; lng: number; count: number; country: string }> = {};
+      filtered.forEach(e => {
+        const k = e.country || 'Unknown';
+        if (!clusters[k]) clusters[k] = { lat: 0, lng: 0, count: 0, country: k };
+        clusters[k].lat += e.lat; clusters[k].lng += e.lng; clusters[k].count++;
+      });
+      Object.values(clusters).forEach(cl => {
+        const lat = cl.lat / cl.count;
+        const lng = cl.lng / cl.count;
+        const marker = new G.Marker({
+          position: { lat, lng }, map,
+          icon: { url: clusterSvg(cl.count), scaledSize: new G.Size(48, 48), anchor: new G.Point(24, 24) },
+          title: `${cl.country} — ${cl.count} events`,
+        });
+        marker.addListener('click', () => {
+          infoWindowRef.current?.setContent(`<div style="font-family:monospace;padding:8px;color:#333"><strong>${escapeHtml(cl.country)}</strong><br>${cl.count} events</div>`);
+          infoWindowRef.current?.open(map, marker);
+        });
+        markersRef.current.push(marker);
+      });
+    } else {
+      filtered.forEach(e => {
+        const r = e.participantCount > 50 ? 10 : e.participantCount > 20 ? 8 : e.participantCount > 5 ? 6 : 4;
+        const iconDim = e.status === 'active' ? r * 4 : r * 2;
+        const marker = new G.Marker({
+          position: { lat: e.lat, lng: e.lng }, map,
+          icon: { url: mapPinSvg(e.status, r), scaledSize: new G.Size(iconDim, iconDim), anchor: new G.Point(iconDim / 2, iconDim / 2) },
+          title: e.title,
+          zIndex: e.status === 'active' ? 10 : 1,
+        });
+        marker.addListener('click', () => {
+          const dateStr = e.date ? new Date(e.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD';
+          const loc = [e.city, e.state, e.country].filter(Boolean).join(', ');
+          infoWindowRef.current?.setContent(`<div style="font-family:monospace;padding:8px 4px;min-width:180px;color:#333"><div style="font-weight:700;font-size:14px;margin-bottom:6px">${escapeHtml(e.title)}</div><div style="font-size:11px;color:#666;margin-bottom:4px">${escapeHtml(e.type)} &middot; ${escapeHtml(e.status)}</div><div style="font-size:11px;color:#444;margin-bottom:4px">${escapeHtml(loc)}</div><div style="font-size:11px;color:#888">Date: ${escapeHtml(dateStr)}</div><div style="font-size:11px;color:#888">Participants: ${e.participantCount}</div></div>`);
+          infoWindowRef.current?.open(map, marker);
+        });
+        markersRef.current.push(marker);
+      });
+    }
+  }, [mapEvents, filterStatus, filterType, filterCountry, zoom]);
+
+  const countries = [...new Set(mapEvents.map(e => e.country).filter(Boolean))].sort();
+  const eventTypes = [...new Set(mapEvents.map(e => e.type).filter(Boolean))].sort();
+  const stats = {
+    total: mapEvents.length,
+    active: mapEvents.filter(e => e.status === 'active').length,
+    countries: new Set(mapEvents.map(e => e.country).filter(Boolean)).size,
+    participants: mapEvents.reduce((s, e) => s + e.participantCount, 0),
+  };
+
+  const selStyle: React.CSSProperties = { padding: '6px 10px', borderRadius: '8px', border: '1px solid #E8E3DC', fontFamily: MONO, fontSize: '12px', backgroundColor: '#fff', color: '#333', cursor: 'pointer' };
+
+  return (
+    <section>
+      <SectionHead title="Live Event Map" sub="Real-time event distribution worldwide" />
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' as const, marginBottom: '16px' }}>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={selStyle}>
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="upcoming">Upcoming</option>
+          <option value="completed">Completed</option>
+        </select>
+        <select value={filterType} onChange={e => setFilterType(e.target.value)} style={selStyle}>
+          <option value="">All Types</option>
+          {eventTypes.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={filterCountry} onChange={e => setFilterCountry(e.target.value)} style={selStyle}>
+          <option value="">All Countries</option>
+          {countries.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+
+      <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E8E3DC' }}>
+        {mapLoading && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a2e', zIndex: 10, color: '#D4A853', fontFamily: MONO, fontSize: '13px' }}>
+            {mapError || 'Initialising map...'}
+          </div>
+        )}
+        <div ref={mapDivRef} style={{ width: '100%', height: '480px' }} />
+        <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: '20px', padding: '4px 12px', zIndex: 5 }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#4CAF50', boxShadow: '0 0 6px #4CAF50' }} />
+          <span style={{ color: '#fff', fontSize: '11px', fontFamily: MONO, fontWeight: '500' }}>LIVE</span>
+        </div>
+        <div style={{ position: 'absolute', bottom: '12px', right: '12px', backgroundColor: 'rgba(0,0,0,0.75)', borderRadius: '10px', padding: '10px 14px', zIndex: 5 }}>
+          {[{ color: '#D4A853', label: 'Active' }, { color: '#FFFFFF', label: 'Upcoming' }, { color: '#AAAAAA', label: 'Completed' }].map(item => (
+            <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: item.color, border: '1px solid rgba(255,255,255,0.3)' }} />
+              <span style={{ color: '#ddd', fontSize: '11px', fontFamily: MONO }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '16px', marginTop: '16px', flexWrap: 'wrap' as const }}>
+        {[
+          { label: 'Total Pins', value: stats.total, accent: false },
+          { label: 'Active Now', value: stats.active, accent: true },
+          { label: 'Countries', value: stats.countries, accent: false },
+          { label: 'Participants', value: stats.participants.toLocaleString('en-IN'), accent: false },
+        ].map(s => (
+          <div key={s.label} style={{ ...CARD, flex: 1, minWidth: '100px', textAlign: 'center' as const, padding: '14px 16px' }}>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: s.accent ? GOLD : '#333', fontFamily: SERIF }}>{s.value}</div>
+            <div style={{ fontSize: '11px', color: '#888', marginTop: '4px', fontFamily: MONO }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
@@ -377,7 +666,7 @@ export default function AnalyticsPage() {
       { data: ptData },
       { data: poData },
     ] = await Promise.all([
-      supabase.from('events').select('id, title, type, status, country, state, city, date, host_id, created_at').order('created_at'),
+      supabase.from('events').select('id, title, type, status, country, state, city, date, host_id, created_at, latitude, longitude').order('created_at'),
       supabase.from('users').select('id, full_name, email, role, country, created_at, is_banned'),
       supabase.from('photos').select('id, event_id, created_at').order('created_at'),
       supabase.from('participants').select('id, event_id, user_id, amount_paid, tier, shots_used, upload_count, joined_at'),
@@ -660,6 +949,8 @@ export default function AnalyticsPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+
+          <LiveEventMap />
 
           {/* ── Section 1: KPI ─────────────────────────────────────────────── */}
           <section>
