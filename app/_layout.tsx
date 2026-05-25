@@ -3,6 +3,7 @@ import { Stack, router } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { PlayfairDisplay_400Regular, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import * as Notifications from 'expo-notifications';
+import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase/client';
 import { registerForPushNotifications } from '../shared/notifications';
@@ -24,78 +25,120 @@ export default function RootLayout() {
   useEffect(() => {
     const checkAuthAndNavigate = async () => {
       try {
-        // Attempt to get the current Supabase session
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user) {
-          // User is signed in — fetch their role
-          const { data: userData, error } = await supabase
+          const { data: userData } = await supabase
             .from('users')
             .select('role')
             .eq('id', session.user.id)
             .single();
 
-          if (!error && userData) {
-            const role = userData.role as UserRole;
-
-            // Redirect based on role
-            if (role === 'host') {
-              router.replace('dashboard/host-dashboard');
-            } else if (role === 'organiser') {
-              router.replace('dashboard/organiser-dashboard');
-            } else if (role === 'admin') {
-              router.replace('admin/events');
-            }
+          const role = userData?.role as UserRole | undefined;
+          if (role === 'host') {
+            setTimeout(() => router.replace('/dashboard/host-dashboard'), 100);
+          } else if (role === 'organiser') {
+            setTimeout(() => router.replace('/dashboard/organiser-dashboard'), 100);
+          } else if (role === 'admin') {
+            setTimeout(() => router.replace('/admin/events'), 100);
+          } else {
+            // Signed in but role not set yet (e.g. new user mid-onboarding)
+            setTimeout(() => router.replace('/auth/select-role'), 100);
           }
         } else {
-          // No session — check for guest participant marker
           const participant = await AsyncStorage.getItem('@guestful_participant');
-
           if (participant) {
-            // Guest is returning — go to reveal screen
-            router.replace('gallery/reveal-screen');
+            setTimeout(() => router.replace('/gallery/reveal-screen'), 100);
           } else {
-            // First time or not a guest — go to onboarding
-            router.replace('onboarding/slides');
+            setTimeout(() => router.replace('/onboarding/slides'), 100);
           }
         }
       } catch (error) {
         console.error('Auth check error:', error);
-        // On error, default to onboarding
-        router.replace('onboarding/slides');
+        setTimeout(() => router.replace('/onboarding/slides'), 100);
       }
     };
 
-    checkAuthAndNavigate();
+    const timer = setTimeout(() => {
+      checkAuthAndNavigate();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // ── OAuth deep-link handler ───────────────────────────────────────────────
+  // _layout is always mounted, so this listener is registered before any
+  // navigation happens — eliminating the race condition where the Linking
+  // 'url' event fires before callback.tsx mounts.
+
+  useEffect(() => {
+    const handleOAuthUrl = async (url: string) => {
+      if (!url.includes('auth/callback')) return;
+      const match = url.match(/[?&#]code=([^&\s#]+)/);
+      const code = match ? decodeURIComponent(match[1]) : null;
+      if (!code) return;
+
+      console.log('[Layout] OAuth code received, exchanging...');
+      try {
+        const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) { console.log('[Layout] Exchange error:', error.message); return; }
+        if (!session?.user) return;
+
+        const sbUser = session.user;
+        const { data: existing } = await supabase
+          .from('users').select('id').eq('id', sbUser.id).single();
+        if (!existing) {
+          await supabase.from('users').insert({
+            id:        sbUser.id,
+            full_name: sbUser.user_metadata?.full_name ?? sbUser.user_metadata?.name ?? '',
+            email:     sbUser.email ?? '',
+          });
+        }
+        // onAuthStateChange SIGNED_IN fires next and handles navigation
+      } catch (e) {
+        console.log('[Layout] OAuth handler error:', e);
+      }
+    };
+
+    // Cold start: app opened directly by the deep link
+    Linking.getInitialURL().then(url => { if (url) handleOAuthUrl(url); });
+
+    // Warm start: app already running when deep link arrives
+    const sub = Linking.addEventListener('url', (e) => handleOAuthUrl(e.url));
+    return () => sub.remove();
   }, []);
 
   // ── Supabase auth state listener ──────────────────────────────────────────
 
   useEffect(() => {
+    // IMPORTANT: callback must NOT be async — supabase-js v2 awaits all
+    // subscribers before resolving setSession/exchangeCodeForSession, so an
+    // async callback here causes a deadlock. Fire async work in a void IIFE.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (event === 'SIGNED_IN') {
-          // User just signed in — fetch role and navigate
-          const { data: userData } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', session?.user?.id)
-            .single();
+          void (async () => {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('role')
+              .eq('id', session?.user?.id)
+              .single();
 
-          if (userData) {
-            const role = userData.role as UserRole;
+            const role = userData?.role as UserRole | undefined;
             if (role === 'host') {
-              router.replace('dashboard/host-dashboard');
+              setTimeout(() => router.replace('/dashboard/host-dashboard'), 100);
             } else if (role === 'organiser') {
-              router.replace('dashboard/organiser-dashboard');
+              setTimeout(() => router.replace('/dashboard/organiser-dashboard'), 100);
             } else if (role === 'admin') {
-              router.replace('admin/events');
+              setTimeout(() => router.replace('/admin/events'), 100);
+            } else {
+              setTimeout(() => router.replace('/auth/select-role'), 100);
             }
-          }
+          })();
         } else if (event === 'SIGNED_OUT') {
-          // User signed out — clear participant data and go to onboarding
-          await AsyncStorage.removeItem('@guestful_participant');
-          router.replace('onboarding/slides');
+          void (async () => {
+            await AsyncStorage.removeItem('@guestful_participant');
+            setTimeout(() => router.replace('/onboarding/slides'), 100);
+          })();
         }
       },
     );
@@ -131,10 +174,10 @@ export default function RootLayout() {
 
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, []);

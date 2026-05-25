@@ -11,7 +11,6 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
 import {
   useFonts,
   PlayfairDisplay_400Regular,
@@ -27,11 +26,13 @@ WebBrowser.maybeCompleteAuthSession();
 const THEME_STORAGE_KEY = '@guestful_onboarding_theme';
 
 const THEMES: Record<string, { background: string; text: string }> = {
-  midnight: { background: '#0C0904', text: '#F0E8D5' },
-  graphite: { background: '#1A1A1A', text: '#FFFFFF' },
-  navy:     { background: '#0D1B2A', text: '#E8F0FE' },
-  forest:   { background: '#0D1F17', text: '#EAF5EE' },
-  wine:     { background: '#1A0A0F', text: '#F5E8EC' },
+  midnight:      { background: '#0C0904', text: '#F0E8D5' },
+  graphite:      { background: '#1A1A1A', text: '#FFFFFF' },
+  navy:          { background: '#0D1B2A', text: '#E8F0FE' },
+  forest:        { background: '#0D1F17', text: '#EAF5EE' },
+  wine:          { background: '#1A0A0F', text: '#F5E8EC' },
+  'deep-pink':   { background: '#3B1321', text: '#F5C8D8' },
+  'burnt-orange':{ background: '#3D1C01', text: '#FFE0C0' },
 };
 
 const DEFAULT_THEME = THEMES.midnight;
@@ -82,74 +83,77 @@ export default function GoogleLogin() {
     setLoading(true);
 
     try {
-      // Build the redirect URL — uses guestfulclicks:// scheme on device
-      const redirectUrl = Linking.createURL('/auth/callback');
+      const redirectUrl = 'guestfulclicks://auth/callback';
 
-      // Get the Google OAuth URL from Supabase
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true,
-        },
+        options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
       });
 
       if (oauthError) throw oauthError;
       if (!data.url) throw new Error('Could not generate sign-in URL.');
 
-      // Open Google sign-in in a browser inside the app
+      console.log('[Auth] Opening browser for OAuth...');
+      // openAuthSessionAsync monitors the redirect URL and returns it directly —
+      // no Linking event timing issues.
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-
-      if (result.type === 'cancel' || result.type === 'dismiss') {
-        setError('Sign-in was cancelled.');
-        return;
-      }
+      console.log('[Auth] Browser result type:', result.type);
 
       if (result.type !== 'success') {
-        setError('Sign-in failed. Please try again.');
+        // User cancelled or browser was dismissed without completing sign-in
+        setLoading(false);
         return;
       }
 
-      // Parse access_token and refresh_token from the redirect URL hash
-      const url = result.url;
-      const hashPart = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? '';
-      const params = new URLSearchParams(hashPart);
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token') ?? '';
+      const callbackUrl = (result as { type: 'success'; url: string }).url;
+      console.log('[Auth] Callback URL:', callbackUrl.substring(0, 80));
 
-      if (!accessToken) throw new Error('No access token in redirect. Please try again.');
+      // Parse both PKCE (?code=) and implicit (#access_token=) flows
+      let session = null as import('@supabase/supabase-js').Session | null;
 
-      // Set the Supabase session from the tokens
-      const { error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      if (sessionError) throw sessionError;
+      const codeMatch = callbackUrl.match(/[?&]code=([^&\s#]+)/);
+      if (codeMatch) {
+        // PKCE flow
+        console.log('[Auth] PKCE flow — exchanging code...');
+        const code = decodeURIComponent(codeMatch[1]);
+        const { data, error: exchError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchError) throw exchError;
+        session = data.session;
+      } else {
+        // Implicit flow — tokens are in the hash fragment
+        console.log('[Auth] Implicit flow — setting session from tokens...');
+        const hash = callbackUrl.includes('#') ? callbackUrl.split('#')[1] : '';
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token') ?? '';
+        if (!accessToken) throw new Error('No access token in redirect URL.');
+        const { data, error: sessError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessError) throw sessError;
+        session = data.session;
+      }
 
-      // Get the authenticated user
-      const { data: { user: sbUser }, error: userError } = await supabase.auth.getUser();
-      if (userError || !sbUser) throw userError ?? new Error('Could not retrieve user.');
+      if (!session?.user) throw new Error('No session returned.');
 
-      // Upsert into custom users table if first sign-in
+      const sbUser = session.user;
       const { data: existing } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', sbUser.id)
-        .single();
-
+        .from('users').select('id').eq('id', sbUser.id).single();
       if (!existing) {
-        const { error: insertError } = await supabase.from('users').insert({
+        const { error: ins } = await supabase.from('users').insert({
           id:        sbUser.id,
           full_name: sbUser.user_metadata?.full_name ?? sbUser.user_metadata?.name ?? '',
           email:     sbUser.email ?? '',
         });
-        if (insertError && insertError.code !== '23505') throw insertError;
+        if (ins && ins.code !== '23505') throw ins;
       }
 
+      console.log('[Auth] Sign-in complete, navigating...');
       router.replace('/auth/select-role');
     } catch (e) {
+      console.log('[Auth] Error:', e);
       setError(e instanceof Error ? e.message : 'Sign-in failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

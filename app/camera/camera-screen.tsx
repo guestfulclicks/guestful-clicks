@@ -869,7 +869,7 @@ const s = StyleSheet.create({
     gap: 14,
   },
   successEmoji:  { fontSize: 64 },
-  successTitle:  { fontSize: 28, color: WW, fontFamily: 'PlayfairDisplay_700Bold', textAlign: 'center' },
+  successTitle:  { fontSize: 30, color: WW, fontFamily: 'PlayfairDisplay_700Bold', textAlign: 'center' },
   successSub:    { fontSize: 18, color: MUTED, textAlign: 'center' },
   successReveal: { fontSize: 14, color: GOLD, fontFamily: 'PlayfairDisplay_400Regular', textAlign: 'center' },
 

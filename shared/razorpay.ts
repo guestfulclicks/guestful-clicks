@@ -50,6 +50,19 @@ export async function openRazorpayCheckout(
       backdropclose: false,
       escape:        false,
     },
+    method: {
+      upi:        true,
+      card:       true,
+      netbanking: true,
+      wallet:     true,
+      paylater:   false,
+    },
+    config: {
+      display: {
+        hide: [{ method: 'paylater' }],
+        preferences: { show_default_blocks: true },
+      },
+    },
   };
 
   const response = await (RazorpayCheckout as any).open(razorpayOptions);

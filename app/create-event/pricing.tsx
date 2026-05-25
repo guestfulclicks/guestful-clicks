@@ -19,7 +19,7 @@ import {
   PlayfairDisplay_400Regular,
   PlayfairDisplay_700Bold,
 } from '@expo-google-fonts/playfair-display';
-import QRCode from 'react-native-qrcode-svg';
+import CameraQRCode from '../../shared/components/CameraQRCode';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../supabase/client';
@@ -33,11 +33,13 @@ import type { UserRole } from '../../shared/types';
 
 const THEME_KEY = '@guestful_onboarding_theme';
 const THEMES: Record<string, { background: string; text: string }> = {
-  midnight: { background: '#0C0904', text: '#F0E8D5' },
-  graphite: { background: '#1A1A1A', text: '#FFFFFF' },
-  navy:     { background: '#0D1B2A', text: '#E8F0FE' },
-  forest:   { background: '#0D1F17', text: '#EAF5EE' },
-  wine:     { background: '#1A0A0F', text: '#F5E8EC' },
+  midnight:     { background: '#0C0904', text: '#F0E8D5' },
+  graphite:     { background: '#1A1A1A', text: '#FFFFFF'  },
+  navy:         { background: '#0D1B2A', text: '#E8F0FE' },
+  forest:       { background: '#0D1F17', text: '#EAF5EE' },
+  wine:         { background: '#1A0A0F', text: '#F5E8EC' },
+  'deep-pink':  { background: '#3B1321', text: '#F5C8D8' },
+  'burnt-orange': { background: '#3D1C01', text: '#FFE0C0' },
 };
 const DEFAULT_THEME = THEMES.midnight;
 const GOLD   = '#D4A853';
@@ -84,23 +86,33 @@ function Logo({ color }: { color: string }) {
 
 // ── Summary row ────────────────────────────────────────────────────────────
 
-function SummaryRow({ label, value, textColor, serif, serifBold, gold = false }: {
+function SummaryRow({ label, value, textColor, serif, serifBold, gold = false, editRoute }: {
   label: string; value: string; textColor: string;
   serif?: string; serifBold?: string; gold?: boolean;
+  editRoute?: string;
 }) {
   return (
     <View style={sr.row}>
-      <Text style={[sr.label, { color: textColor, fontFamily: serif }]}>{label}</Text>
-      <Text style={[sr.value, { color: gold ? GOLD : textColor, fontFamily: gold ? serifBold : serif }]} numberOfLines={2}>
-        {value}
-      </Text>
+      <View style={sr.left}>
+        <Text style={[sr.label, { color: textColor, fontFamily: serif }]}>{label}</Text>
+        <Text style={[sr.value, { color: gold ? GOLD : textColor, fontFamily: gold ? serifBold : serif }]} numberOfLines={2}>
+          {value}
+        </Text>
+      </View>
+      {editRoute && (
+        <TouchableOpacity onPress={() => router.push(editRoute as any)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={[sr.editBtn, { fontFamily: serifBold }]}>Edit →</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 const sr = StyleSheet.create({
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.07)' },
-  label: { fontSize: 13, opacity: 0.5, letterSpacing: 0.2, flex: 1 },
-  value: { fontSize: 13, flex: 1.4, textAlign: 'right', letterSpacing: 0.2, lineHeight: 18 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.07)' },
+  left: { flex: 1, gap: 2 },
+  label: { fontSize: 14, opacity: 0.5, letterSpacing: 0.2 },
+  value: { fontSize: 15, letterSpacing: 0.2, lineHeight: 20 },
+  editBtn: { fontSize: 12, color: '#D4A853', letterSpacing: 0.3, marginLeft: 12 },
 });
 
 // ── Action button ──────────────────────────────────────────────────────────
@@ -318,14 +330,14 @@ export default function PricingScreen() {
 
           {/* Summary card */}
           <View style={[s.summaryCard, { borderColor: 'rgba(255,255,255,0.1)' }]}>
-            <SummaryRow label="Event"     value={draft.eventName || '—'}           textColor={theme.text} serif={serif} serifBold={serifBold} />
-            <SummaryRow label="Date"      value={fmtDate(draft.eventDate)}          textColor={theme.text} serif={serif} />
-            <SummaryRow label="Type"      value={isOrganiser ? 'Public Event' : 'Private Film'} textColor={theme.text} serif={serif} />
-            <SummaryRow label="Aesthetic" value={capitalize(draft.aesthetic)}       textColor={theme.text} serif={serif} />
+            <SummaryRow label="Event"     value={draft.eventName || '—'}           textColor={theme.text} serif={serif} serifBold={serifBold} editRoute="/create-event/event-name" />
+            <SummaryRow label="Date"      value={fmtDate(draft.eventDate)}          textColor={theme.text} serif={serif} serifBold={serifBold} editRoute="/create-event/event-date" />
+            <SummaryRow label="Type"      value={isOrganiser ? 'Public Event' : 'Private Film'} textColor={theme.text} serif={serif} serifBold={serifBold} />
+            <SummaryRow label="Aesthetic" value={capitalize(draft.aesthetic)}       textColor={theme.text} serif={serif} serifBold={serifBold} editRoute="/create-event/film-aesthetic" />
             {!isOrganiser && (
-              <SummaryRow label="Guests"  value={draft.guestCount === 999 ? '300+ guests' : `Up to ${draft.guestCount} guests`} textColor={theme.text} serif={serif} />
+              <SummaryRow label="Guests"  value={draft.guestCount === 999 ? '300+ guests' : `Up to ${draft.guestCount} guests`} textColor={theme.text} serif={serif} serifBold={serifBold} editRoute="/create-event/guest-count" />
             )}
-            <SummaryRow label="Reveal"    value={fmtReveal(draft.revealTime)}       textColor={theme.text} serif={serif} />
+            <SummaryRow label="Reveal"    value={fmtReveal(draft.revealTime)}       textColor={theme.text} serif={serif} serifBold={serifBold} editRoute="/create-event/reveal-time" />
 
             {/* Divider + total */}
             <View style={s.totalDivider} />
@@ -399,25 +411,16 @@ export default function PricingScreen() {
             {draft.eventName}
           </Text>
 
-          {/* QR card */}
-          <View style={s.qrCard}>
-            <QRCode
-              value={buildJoinURL(shareCode)}
-              size={220}
-              getRef={(c: any) => { qrRef.current = c; }}
-              backgroundColor="white"
-              color="#0C0904"
-            />
-          </View>
-
-          {/* Share code */}
-          <View style={s.shareCodeRow}>
-            <Text style={[s.shareCodeLabel, { color: theme.text, fontFamily: serif }]}>Share code</Text>
-            <Text style={[s.shareCodeValue, { fontFamily: serifBold }]}>{shareCode}</Text>
-          </View>
+          {/* Camera QR */}
+          <CameraQRCode
+            value={buildJoinURL(shareCode)}
+            shareCode={shareCode}
+            qrRef={qrRef}
+            size={220}
+          />
 
           {/* Action buttons */}
-          <View style={s.actionsRow}>
+          <View style={[s.actionsRow, { marginTop: 20 }]}>
             <ActionBtn icon="🔗" label="Share Link" onPress={handleShareLink} textColor={theme.text} serif={serif} />
             <ActionBtn icon="💾" label="Save QR"    onPress={handleSaveQR}   textColor={theme.text} serif={serif} />
             <ActionBtn icon="💬" label="WhatsApp"   onPress={handleWhatsApp} textColor={theme.text} serif={serif} />
@@ -458,8 +461,8 @@ const s = StyleSheet.create({
   scrollContent: { paddingHorizontal: H_PAD, paddingTop: 24 },
 
   // State 1
-  heading: { fontSize: 30, lineHeight: 42, letterSpacing: 0.2, marginBottom: 10 },
-  subtext:  { fontSize: 14, lineHeight: 22, opacity: 0.6, marginBottom: 24 },
+  heading: { fontSize: 32, lineHeight: 44, letterSpacing: 0.2, marginBottom: 10 },
+  subtext:  { fontSize: 15, lineHeight: 23, opacity: 0.6, marginBottom: 24 },
 
   summaryCard: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 18, paddingTop: 4, paddingBottom: 16, marginBottom: 20 },
   totalDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 14 },
@@ -493,25 +496,10 @@ const s = StyleSheet.create({
   },
   checkMark: { fontSize: 36, color: '#0C0904', fontWeight: '700', lineHeight: 44 },
 
-  successHeading: { fontSize: 28, lineHeight: 38, letterSpacing: 0.2, textAlign: 'center', marginBottom: 10 },
-  successSubtext:  { fontSize: 14, lineHeight: 22, opacity: 0.6, textAlign: 'center', marginBottom: 20, paddingHorizontal: 8 },
+  successHeading: { fontSize: 30, lineHeight: 40, letterSpacing: 0.2, textAlign: 'center', marginBottom: 10 },
+  successSubtext:  { fontSize: 15, lineHeight: 23, opacity: 0.6, textAlign: 'center', marginBottom: 20, paddingHorizontal: 8 },
 
   eventNameGold: { fontSize: 20, color: GOLD, letterSpacing: 0.3, textAlign: 'center', marginBottom: 24, paddingHorizontal: 8 },
-
-  qrCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12 },
-      android: { elevation: 6 },
-    }),
-  },
-
-  shareCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 24 },
-  shareCodeLabel: { fontSize: 12, opacity: 0.5, letterSpacing: 0.5 },
-  shareCodeValue: { fontSize: 18, color: GOLD, letterSpacing: 3 },
 
   actionsRow: { flexDirection: 'row', gap: 10, width: '100%', marginBottom: 24 },
 

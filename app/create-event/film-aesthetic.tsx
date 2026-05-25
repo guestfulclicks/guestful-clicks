@@ -22,11 +22,13 @@ import { useCreateEvent } from '../../shared/CreateEventContext';
 
 const THEME_KEY = '@guestful_onboarding_theme';
 const THEMES: Record<string, { background: string; text: string }> = {
-  midnight: { background: '#0C0904', text: '#F0E8D5' },
-  graphite: { background: '#1A1A1A', text: '#FFFFFF' },
-  navy:     { background: '#0D1B2A', text: '#E8F0FE' },
-  forest:   { background: '#0D1F17', text: '#EAF5EE' },
-  wine:     { background: '#1A0A0F', text: '#F5E8EC' },
+  midnight:      { background: '#0C0904', text: '#F0E8D5' },
+  graphite:      { background: '#1A1A1A', text: '#FFFFFF' },
+  navy:          { background: '#0D1B2A', text: '#E8F0FE' },
+  forest:        { background: '#0D1F17', text: '#EAF5EE' },
+  wine:          { background: '#1A0A0F', text: '#F5E8EC' },
+  'deep-pink':   { background: '#3B1321', text: '#F5C8D8' },
+  'burnt-orange':{ background: '#3D1C01', text: '#FFE0C0' },
 };
 const DEFAULT_THEME = THEMES.midnight;
 const GOLD = '#D4A853';
@@ -391,8 +393,8 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   bodyContent: { paddingTop: 28, paddingBottom: 12 },
 
-  heading: { fontSize: 28, lineHeight: 40, letterSpacing: 0.2, marginBottom: 10, paddingHorizontal: H_PAD },
-  subtext: { fontSize: 14, lineHeight: 22, opacity: 0.6, marginBottom: 28, paddingHorizontal: H_PAD },
+  heading: { fontSize: 32, lineHeight: 44, letterSpacing: 0.2, marginBottom: 10, paddingHorizontal: H_PAD },
+  subtext: { fontSize: 15, lineHeight: 24, opacity: 0.6, marginBottom: 28, paddingHorizontal: H_PAD },
 
   // Carousel
   carousel: { overflow: 'visible' },

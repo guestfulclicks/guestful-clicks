@@ -22,11 +22,13 @@ import { supabase } from '../../supabase/client';
 const THEME_STORAGE_KEY = '@guestful_onboarding_theme';
 
 const THEMES: Record<string, { background: string; text: string }> = {
-  midnight: { background: '#0C0904', text: '#F0E8D5' },
-  graphite: { background: '#1A1A1A', text: '#FFFFFF' },
-  navy:     { background: '#0D1B2A', text: '#E8F0FE' },
-  forest:   { background: '#0D1F17', text: '#EAF5EE' },
-  wine:     { background: '#1A0A0F', text: '#F5E8EC' },
+  midnight:      { background: '#0C0904', text: '#F0E8D5' },
+  graphite:      { background: '#1A1A1A', text: '#FFFFFF' },
+  navy:          { background: '#0D1B2A', text: '#E8F0FE' },
+  forest:        { background: '#0D1F17', text: '#EAF5EE' },
+  wine:          { background: '#1A0A0F', text: '#F5E8EC' },
+  'deep-pink':   { background: '#3B1321', text: '#F5C8D8' },
+  'burnt-orange':{ background: '#3D1C01', text: '#FFE0C0' },
 };
 
 const DEFAULT_THEME = THEMES.midnight;

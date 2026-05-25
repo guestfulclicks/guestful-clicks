@@ -24,7 +24,7 @@ import {
   PlayfairDisplay_400Regular,
   PlayfairDisplay_700Bold,
 } from '@expo-google-fonts/playfair-display';
-import QRCode from 'react-native-qrcode-svg';
+import CameraQRCode from '../../shared/components/CameraQRCode';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../supabase/client';
@@ -33,11 +33,13 @@ import { REVENUE_SHARE, PUBLIC_PARTICIPANT_PRICING } from '../../shared/constant
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
 const THEMES: Record<string, { background: string; text: string }> = {
-  midnight: { background: '#0C0904', text: '#F0E8D5' },
-  graphite: { background: '#1A1A1A', text: '#FFFFFF'  },
-  navy:     { background: '#0D1B2A', text: '#E8F0FE'  },
-  forest:   { background: '#0D1F17', text: '#EAF5EE'  },
-  wine:     { background: '#1A0A0F', text: '#F5E8EC'  },
+  midnight:      { background: '#0C0904', text: '#F0E8D5' },
+  graphite:      { background: '#1A1A1A', text: '#FFFFFF'  },
+  navy:          { background: '#0D1B2A', text: '#E8F0FE'  },
+  forest:        { background: '#0D1F17', text: '#EAF5EE'  },
+  wine:          { background: '#1A0A0F', text: '#F5E8EC'  },
+  'deep-pink':   { background: '#3B1321', text: '#F5C8D8'  },
+  'burnt-orange':{ background: '#3D1C01', text: '#FFE0C0'  },
 };
 const THEME_KEY  = '@guestful_onboarding_theme';
 const DEFAULT_TH = THEMES.midnight;
@@ -829,12 +831,11 @@ export default function OrganiserDashboard() {
             <Text style={[sc.posterDate, { fontFamily: serif }]}>{fmtDate(selectedEvent.event_date)}</Text>
 
             <View style={sc.posterQRWrap}>
-              <QRCode
+              <CameraQRCode
                 value={shareUrl}
-                size={140}
-                getRef={(c: any) => { qrRef.current = c; }}
-                backgroundColor="white"
-                color="#0C0904"
+                shareCode={selectedEvent.share_code}
+                qrRef={qrRef}
+                size={200}
               />
             </View>
 

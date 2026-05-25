@@ -26,11 +26,13 @@ import type { UserRole } from '../../shared/types';
 const THEME_STORAGE_KEY = '@guestful_onboarding_theme';
 
 const THEMES: Record<string, { background: string; text: string }> = {
-  midnight: { background: '#0C0904', text: '#F0E8D5' },
-  graphite: { background: '#1A1A1A', text: '#FFFFFF' },
-  navy:     { background: '#0D1B2A', text: '#E8F0FE' },
-  forest:   { background: '#0D1F17', text: '#EAF5EE' },
-  wine:     { background: '#1A0A0F', text: '#F5E8EC' },
+  midnight:     { background: '#0C0904', text: '#F0E8D5' },
+  graphite:     { background: '#1A1A1A', text: '#FFFFFF'  },
+  navy:         { background: '#0D1B2A', text: '#E8F0FE' },
+  forest:       { background: '#0D1F17', text: '#EAF5EE' },
+  wine:         { background: '#1A0A0F', text: '#F5E8EC' },
+  'deep-pink':  { background: '#3B1321', text: '#F5C8D8' },
+  'burnt-orange': { background: '#3D1C01', text: '#FFE0C0' },
 };
 
 const DEFAULT_THEME = THEMES.midnight;
@@ -53,7 +55,7 @@ interface EventTypeOption {
   title: string;
 }
 
-const HOST_TYPES: EventTypeOption[] = [
+const FALLBACK_HOST_TYPES: EventTypeOption[] = [
   { key: 'wedding',     icon: '💒', title: 'Wedding & Reception' },
   { key: 'birthday',    icon: '🎂', title: 'Birthday & Reunion' },
   { key: 'bachelor',    icon: '💍', title: 'Bachelor · Bachelorette' },
@@ -62,7 +64,7 @@ const HOST_TYPES: EventTypeOption[] = [
   { key: 'celebration', icon: '🎉', title: 'Other Celebration' },
 ];
 
-const ORGANISER_TYPES: EventTypeOption[] = [
+const FALLBACK_ORGANISER_TYPES: EventTypeOption[] = [
   { key: 'sports',    icon: '🏏', title: 'Sports Event' },
   { key: 'music',     icon: '🎵', title: 'Music Festival & Concert' },
   { key: 'cultural',  icon: '🎪', title: 'Cultural Festival' },
@@ -90,6 +92,7 @@ export default function EventTypeScreen() {
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [role, setRole] = useState<UserRole | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
+  const [eventTypes, setEventTypes] = useState<EventTypeOption[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
 
   const [fontsLoaded] = useFonts({
@@ -107,25 +110,54 @@ export default function EventTypeScreen() {
     });
   }, []);
 
-  // Load user role from Supabase
+  // Load user role + fetch event categories from Supabase
   useEffect(() => {
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        const { data } = await supabase
+
+        const { data: userData } = await supabase
           .from('users')
-          .select('role')
+          .select('role, country_code')
           .eq('id', user.id)
           .single();
-        if (data?.role) setRole(data.role as UserRole);
+
+        const userRole = userData?.role as UserRole | undefined;
+        const countryCode = userData?.country_code as string | undefined;
+        if (userRole) setRole(userRole);
+
+        const eventTypeFilter = userRole === 'organiser'
+          ? ['public', 'both']
+          : ['private', 'both'];
+
+        const query = supabase
+          .from('event_categories')
+          .select('key, icon, title')
+          .eq('is_active', true)
+          .in('event_type', eventTypeFilter)
+          .order('sort_order', { ascending: true });
+
+        if (countryCode) {
+          query.contains('country_codes', [countryCode]);
+        }
+
+        const { data: categories } = await query;
+
+        const fallback = userRole === 'organiser' ? FALLBACK_ORGANISER_TYPES : FALLBACK_HOST_TYPES;
+        setEventTypes(
+          categories && categories.length > 0
+            ? categories.map((c) => ({ key: c.key, icon: c.icon, title: c.title }))
+            : fallback,
+        );
+      } catch {
+        const fallback = role === 'organiser' ? FALLBACK_ORGANISER_TYPES : FALLBACK_HOST_TYPES;
+        setEventTypes(fallback);
       } finally {
         setRoleLoading(false);
       }
     })();
   }, []);
-
-  const eventTypes = role === 'organiser' ? ORGANISER_TYPES : HOST_TYPES;
 
   const handleContinue = () => {
     if (!selected) return;
@@ -296,8 +328,8 @@ const styles = StyleSheet.create({
     paddingTop: 32,
   },
   heading: {
-    fontSize: 30,
-    lineHeight: 40,
+    fontSize: 32,
+    lineHeight: 42,
     letterSpacing: 0.2,
     marginBottom: 10,
   },

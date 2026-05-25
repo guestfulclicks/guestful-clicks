@@ -26,11 +26,13 @@ import { useCreateEvent } from '../../shared/CreateEventContext';
 
 const THEME_KEY = '@guestful_onboarding_theme';
 const THEMES: Record<string, { background: string; text: string }> = {
-  midnight: { background: '#0C0904', text: '#F0E8D5' },
-  graphite: { background: '#1A1A1A', text: '#FFFFFF' },
-  navy:     { background: '#0D1B2A', text: '#E8F0FE' },
-  forest:   { background: '#0D1F17', text: '#EAF5EE' },
-  wine:     { background: '#1A0A0F', text: '#F5E8EC' },
+  midnight:      { background: '#0C0904', text: '#F0E8D5' },
+  graphite:      { background: '#1A1A1A', text: '#FFFFFF' },
+  navy:          { background: '#0D1B2A', text: '#E8F0FE' },
+  forest:        { background: '#0D1F17', text: '#EAF5EE' },
+  wine:          { background: '#1A0A0F', text: '#F5E8EC' },
+  'deep-pink':   { background: '#3B1321', text: '#F5C8D8' },
+  'burnt-orange':{ background: '#3D1C01', text: '#FFE0C0' },
 };
 const DEFAULT_THEME = THEMES.midnight;
 const GOLD = '#D4A853';
@@ -154,6 +156,7 @@ function PhoneMockup({ imageUri, aesthetic, eventName, hostName, revealTime, ser
               <>
                 <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                 <AestheticOverlay aesthetic={aesthetic} />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(212,168,83,0.35)' }]} pointerEvents="none" />
               </>
             ) : (
               <CoverPlaceholder aesthetic={aesthetic} />
@@ -405,7 +408,7 @@ export default function InvitationCardScreen() {
         {/* No-image hint */}
         {!imageUri && !permError && (
           <Text style={[styles.hint, { color: theme.text, fontFamily: serif }]}>
-            Tap "Edit Cover Image" to add a photo, or continue without one.
+            Make your own invite — upload from your gallery
           </Text>
         )}
 
@@ -482,8 +485,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: H_PAD, paddingTop: 28 },
 
-  heading: { fontSize: 28, lineHeight: 40, letterSpacing: 0.2, marginBottom: 10 },
-  subtext: { fontSize: 14, lineHeight: 22, opacity: 0.6, marginBottom: 16 },
+  heading: { fontSize: 32, lineHeight: 44, letterSpacing: 0.2, marginBottom: 10 },
+  subtext: { fontSize: 15, lineHeight: 24, opacity: 0.6, marginBottom: 16 },
 
   aestheticBadge: {
     alignSelf: 'flex-start',
