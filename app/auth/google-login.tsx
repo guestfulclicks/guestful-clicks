@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   StatusBar,
   Platform,
-  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -94,10 +93,33 @@ export default function GoogleLogin() {
       if (oauthError) throw oauthError;
       if (!data.url) throw new Error('Could not generate sign-in URL.');
 
-      // Open in system browser. _layout.tsx Linking listener handles the
-      // callback, exchanges the code, creates the user record, and navigates.
-      await Linking.openURL(data.url);
-      // Stay in loading state — _layout.tsx will navigate away when done.
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+      if (result.type === 'success') {
+        // iOS or Android with RedirectActivity: URL returned directly
+        const callbackUrl = (result as any).url as string;
+        const codeMatch = callbackUrl.match(/[?&]code=([^&\s#]+)/);
+        if (codeMatch) {
+          const { error: exchError } = await supabase.auth.exchangeCodeForSession(
+            decodeURIComponent(codeMatch[1]),
+          );
+          if (exchError) throw exchError;
+        }
+        // onAuthStateChange in _layout.tsx handles navigation
+        return;
+      }
+
+      // 'dismiss' on Android: custom tab closed because the deep link opened the app.
+      // Wait up to 6s for _layout.tsx to finish exchangeCodeForSession.
+      await new Promise<void>((resolve) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+          if (event === 'SIGNED_IN') { subscription.unsubscribe(); resolve(); }
+        });
+        setTimeout(() => { subscription.unsubscribe(); resolve(); }, 6000);
+      });
+
+      const { data: { session: finalSession } } = await supabase.auth.getSession();
+      if (!finalSession) setLoading(false);
     } catch (e) {
       console.log('[Auth] Error:', e);
       setError(e instanceof Error ? e.message : 'Sign-in failed. Please try again.');
