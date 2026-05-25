@@ -1,14 +1,36 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { useLocalSearchParams, router } from 'expo-router';
+import { supabase } from '../../supabase/client';
 
-// Required for iOS to close the in-app browser after the OAuth redirect
+// Required for iOS — signals openAuthSessionAsync that the browser can close
 WebBrowser.maybeCompleteAuthSession();
 
-// The actual OAuth code exchange is handled in app/_layout.tsx via its
-// always-mounted Linking listener, which avoids the race condition where
-// the 'url' event fires before this screen has mounted.
 export default function AuthCallback() {
+  const { code } = useLocalSearchParams<{ code?: string }>();
+
+  useEffect(() => {
+    if (!code) return;
+
+    const exchangeCode = async () => {
+      try {
+        // Guard: if google-login.tsx already exchanged (iOS success path), skip
+        const { data: { session: existing } } = await supabase.auth.getSession();
+        if (existing) return;
+
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+        // onAuthStateChange SIGNED_IN in _layout.tsx handles navigation
+      } catch (e) {
+        console.log('[Callback] Exchange error:', e);
+        router.replace('/auth/google-login');
+      }
+    };
+
+    exchangeCode();
+  }, [code]);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#0C0904', justifyContent: 'center', alignItems: 'center', gap: 16 }}>
       <ActivityIndicator size="large" color="#D4A853" />

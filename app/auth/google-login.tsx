@@ -95,41 +95,13 @@ export default function GoogleLogin() {
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
-      if (result.type === 'success') {
-        const callbackUrl = (result as any).url as string;
-        const codeMatch = callbackUrl.match(/[?&]code=([^&\s#]+)/);
-        if (codeMatch) {
-          const { error: exchError } = await supabase.auth.exchangeCodeForSession(
-            decodeURIComponent(codeMatch[1]),
-          );
-          if (exchError) throw exchError;
-        } else if (callbackUrl.includes('access_token=')) {
-          // Implicit flow fallback — tokens in hash fragment
-          const hash = callbackUrl.includes('#') ? callbackUrl.split('#')[1] : '';
-          const params = new URLSearchParams(hash);
-          const accessToken = params.get('access_token');
-          const refreshToken = params.get('refresh_token') ?? '';
-          if (accessToken) {
-            const { error: sessErr } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-            if (sessErr) throw sessErr;
-          }
-        }
-        // onAuthStateChange in _layout.tsx handles navigation; reset loading so
-        // the spinner doesn't stick if navigation is delayed by a DB round-trip
-        setLoading(false);
-        return;
-      }
-
-      // 'dismiss' on Android: custom tab closed because the deep link opened the app.
-      // Wait up to 6s for _layout.tsx to finish exchangeCodeForSession.
+      // On both 'success' (iOS) and 'dismiss' (Android), callback.tsx handles
+      // the code exchange via useLocalSearchParams. Wait up to 8s for SIGNED_IN.
       await new Promise<void>((resolve) => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
           if (event === 'SIGNED_IN') { subscription.unsubscribe(); resolve(); }
         });
-        setTimeout(() => { subscription.unsubscribe(); resolve(); }, 6000);
+        setTimeout(() => { subscription.unsubscribe(); resolve(); }, 8000);
       });
 
       // Always reset loading — navigation unmounts this screen if sign-in succeeded
