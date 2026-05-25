@@ -100,8 +100,11 @@ export default function GoogleLogin() {
       console.log('[Auth] Browser result type:', result.type);
 
       if (result.type !== 'success') {
-        // User cancelled or browser was dismissed without completing sign-in
-        setLoading(false);
+        // On Android, Chrome Custom Tab closes when the deep link opens the app,
+        // which triggers 'dismiss'. Check if _layout.tsx already completed auth.
+        const { data: { session: existing } } = await supabase.auth.getSession();
+        if (!existing) setLoading(false);
+        // If session exists, _layout.tsx onAuthStateChange handles navigation.
         return;
       }
 
