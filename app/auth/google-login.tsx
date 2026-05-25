@@ -96,7 +96,6 @@ export default function GoogleLogin() {
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
       if (result.type === 'success') {
-        // iOS or Android with RedirectActivity: URL returned directly
         const callbackUrl = (result as any).url as string;
         const codeMatch = callbackUrl.match(/[?&]code=([^&\s#]+)/);
         if (codeMatch) {
@@ -104,6 +103,19 @@ export default function GoogleLogin() {
             decodeURIComponent(codeMatch[1]),
           );
           if (exchError) throw exchError;
+        } else if (callbackUrl.includes('access_token=')) {
+          // Implicit flow fallback — tokens in hash fragment
+          const hash = callbackUrl.includes('#') ? callbackUrl.split('#')[1] : '';
+          const params = new URLSearchParams(hash);
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token') ?? '';
+          if (accessToken) {
+            const { error: sessErr } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (sessErr) throw sessErr;
+          }
         }
         // onAuthStateChange in _layout.tsx handles navigation
         return;
