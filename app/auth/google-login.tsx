@@ -83,7 +83,7 @@ export default function GoogleLogin() {
     setLoading(true);
 
     try {
-      const redirectUrl = 'guestfulclicks://auth/callback';
+      const redirectUrl = 'guestfulclicks://join/auth/callback';
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
