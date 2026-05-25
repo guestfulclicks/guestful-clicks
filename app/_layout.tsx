@@ -75,7 +75,39 @@ export default function RootLayout() {
       if (!url.includes('auth/callback')) return;
       const match = url.match(/[?&#]code=([^&\s#]+)/);
       const code = match ? decodeURIComponent(match[1]) : null;
-      if (!code) return;
+
+      if (!code) {
+        // Implicit flow — Supabase sends tokens in the hash fragment
+        if (!url.includes('access_token=')) return;
+        const hash = url.includes('#') ? url.split('#')[1] : '';
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token') ?? '';
+        if (!accessToken) return;
+        console.log('[Layout] OAuth implicit flow tokens received, setting session...');
+        try {
+          const { data: { session }, error } = await supabase.auth.setSession({
+            access_token:  accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) { console.log('[Layout] setSession error:', error.message); return; }
+          if (!session?.user) return;
+          const sbUser = session.user;
+          const { data: existing } = await supabase
+            .from('users').select('id').eq('id', sbUser.id).single();
+          if (!existing) {
+            await supabase.from('users').insert({
+              id:        sbUser.id,
+              full_name: sbUser.user_metadata?.full_name ?? sbUser.user_metadata?.name ?? '',
+              email:     sbUser.email ?? '',
+            });
+          }
+          // onAuthStateChange SIGNED_IN fires and handles navigation
+        } catch (e) {
+          console.log('[Layout] Implicit flow error:', e);
+        }
+        return;
+      }
 
       console.log('[Layout] OAuth code received, exchanging...');
       try {
