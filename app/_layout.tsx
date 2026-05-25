@@ -109,6 +109,10 @@ export default function RootLayout() {
         return;
       }
 
+      // Guard: if google-login.tsx already exchanged the code on success, skip to avoid double exchange
+      const { data: { session: alreadySession } } = await supabase.auth.getSession();
+      if (alreadySession) return;
+
       console.log('[Layout] OAuth code received, exchanging...');
       try {
         const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);

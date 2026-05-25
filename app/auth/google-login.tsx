@@ -117,7 +117,9 @@ export default function GoogleLogin() {
             if (sessErr) throw sessErr;
           }
         }
-        // onAuthStateChange in _layout.tsx handles navigation
+        // onAuthStateChange in _layout.tsx handles navigation; reset loading so
+        // the spinner doesn't stick if navigation is delayed by a DB round-trip
+        setLoading(false);
         return;
       }
 
@@ -130,8 +132,8 @@ export default function GoogleLogin() {
         setTimeout(() => { subscription.unsubscribe(); resolve(); }, 6000);
       });
 
-      const { data: { session: finalSession } } = await supabase.auth.getSession();
-      if (!finalSession) setLoading(false);
+      // Always reset loading — navigation unmounts this screen if sign-in succeeded
+      setLoading(false);
     } catch (e) {
       console.log('[Auth] Error:', e);
       setError(e instanceof Error ? e.message : 'Sign-in failed. Please try again.');
