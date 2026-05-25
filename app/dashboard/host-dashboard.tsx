@@ -8,7 +8,9 @@ import {
   FlatList,
   Image,
   Linking,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   Share,
   StatusBar,
@@ -206,6 +208,10 @@ export default function HostDashboard() {
   const [dashView, setDashView] = useState<DashView>('list');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Profile / sign-out
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [userInfo, setUserInfo] = useState<{ name: string; email: string } | null>(null);
+
   // Events list
   const [events, setEvents]         = useState<EventRow[]>([]);
   const [eventStats, setEventStats] = useState<Record<string, CardStats>>({});
@@ -229,6 +235,15 @@ export default function HostDashboard() {
     (async () => {
       const key = await AsyncStorage.getItem(THEME_KEY);
       if (key && THEMES[key]) setTheme(THEMES[key]);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserInfo({
+          name:  user.user_metadata?.full_name ?? user.user_metadata?.name ?? 'User',
+          email: user.email ?? '',
+        });
+      }
+
       await loadEvents();
       setIsLoading(false);
     })();
@@ -256,21 +271,26 @@ export default function HostDashboard() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: evs } = await supabase
+    console.log('[Dashboard] Loading events for user:', user.id);
+
+    const { data: evs, error } = await supabase
       .from('events')
-      .select('id, title, type, event_date, reveal_time, aesthetic, status, share_code, invitation_card, pricing_tier, event_end_time')
+      .select('*')
       .eq('host_id', user.id)
-      .order('event_date', { ascending: false });
+      .order('created_at', { ascending: false });
+
+    console.log('[Dashboard] Events returned:', evs?.length ?? 0, error ?? '');
+
+    setEvents((evs ?? []) as EventRow[]);
 
     if (!evs?.length) return;
-    setEvents(evs as EventRow[]);
 
     // Fetch stats for each event card
     const statEntries = await Promise.all(
       evs.map(async ev => {
         const [{ count: gc }, { count: pc }] = await Promise.all([
-          supabase.from('participants').select('*', { count: 'exact', head: true }).eq('event_id', ev.id),
-          supabase.from('photos').select('*', { count: 'exact', head: true }).eq('event_id', ev.id),
+          supabase.from('participants').select('id', { count: 'exact' }).eq('event_id', ev.id),
+          supabase.from('photos').select('id', { count: 'exact' }).eq('event_id', ev.id),
         ]);
         return [ev.id, { guestCount: gc ?? 0, photoCount: pc ?? 0 }] as const;
       })
@@ -329,6 +349,13 @@ export default function HostDashboard() {
     setSelectedEvent(null);
     loadEvents(); // refresh counts
   }
+
+  const handleSignOut = async () => {
+    setProfileOpen(false);
+    await supabase.auth.signOut();
+    await AsyncStorage.clear();
+    router.replace('/onboarding/slides');
+  };
 
   // ── Reveal handler ────────────────────────────────────────────────────────
 
@@ -445,7 +472,13 @@ export default function HostDashboard() {
 
         {/* Top bar */}
         <View style={[sc.topBar, { borderBottomColor: 'rgba(255,255,255,0.08)' }]}>
+          <View style={sc.topBarSpacer} />
           <View style={sc.topBarCenter}><Logo textColor={TXT} /></View>
+          <TouchableOpacity style={sc.profileBtn} onPress={() => setProfileOpen(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <View style={sc.profileCircle}>
+              <Text style={sc.profileInitial}>{userInfo?.name?.charAt(0).toUpperCase() ?? '?'}</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View style={[sc.listHeader, { borderBottomColor: 'rgba(255,255,255,0.08)' }]}>
@@ -463,14 +496,8 @@ export default function HostDashboard() {
             <Text style={sc.emptyIcon}>🎞</Text>
             <Text style={[sc.emptyTitle, { color: TXT, fontFamily: serifBold }]}>No films yet.</Text>
             <Text style={[sc.emptyBody, { color: TXT, fontFamily: serif }]}>
-              Create your first film and share it with your guests.
+              Tap "New Film" above to create your first film and share it with your guests.
             </Text>
-            <TouchableOpacity
-              style={sc.createBtn}
-              onPress={() => router.push('/create-event/event-type' as any)}
-            >
-              <Text style={[sc.createBtnText, { fontFamily: serifBold }]}>Create a Film →</Text>
-            </TouchableOpacity>
           </View>
         ) : (
           <FlatList
@@ -523,6 +550,23 @@ export default function HostDashboard() {
             }}
           />
         )}
+
+        {/* ── Profile / Sign Out modal ── */}
+        <Modal visible={profileOpen} transparent animationType="slide" onRequestClose={() => setProfileOpen(false)}>
+          <Pressable style={sc.profileOverlay} onPress={() => setProfileOpen(false)}>
+            <Pressable style={[sc.profileSheet, { backgroundColor: BG }]}>
+              <View style={[sc.profileHandle, { backgroundColor: TXT }]} />
+              <View style={sc.profileAvatarCircle}>
+                <Text style={sc.profileAvatarInitial}>{userInfo?.name?.charAt(0).toUpperCase() ?? '?'}</Text>
+              </View>
+              <Text style={[sc.profileName, { color: TXT, fontFamily: serifBold }]}>{userInfo?.name ?? ''}</Text>
+              <Text style={[sc.profileEmail, { color: TXT, fontFamily: serif }]}>{userInfo?.email ?? ''}</Text>
+              <TouchableOpacity style={sc.signOutBtn} onPress={handleSignOut} activeOpacity={0.82}>
+                <Text style={[sc.signOutText, { fontFamily: serifBold }]}>Sign Out</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
     );
   }
@@ -731,8 +775,53 @@ const sc = StyleSheet.create({
   emptyIcon:  { fontSize: 48 },
   emptyTitle: { fontSize: 22, textAlign: 'center' },
   emptyBody:  { fontSize: 14, textAlign: 'center', lineHeight: 22, opacity: 0.6, paddingHorizontal: 8 },
-  createBtn:  { marginTop: 8, backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 28 },
-  createBtnText: { fontSize: 15, color: '#0C0904' },
+
+  // Profile button (top right)
+  topBarSpacer: { width: 36 },
+  profileBtn: { width: 36, alignItems: 'flex-end' },
+  profileCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: GOLD,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileInitial: { fontSize: 14, color: '#0C0904', fontFamily: 'PlayfairDisplay_700Bold' },
+
+  // Profile sheet modal
+  profileOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  profileSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 28,
+    paddingTop: 14,
+    paddingBottom: BOT_PAD + 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  profileHandle: { width: 36, height: 3, borderRadius: 2, opacity: 0.3, marginBottom: 20 },
+  profileAvatarCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: GOLD,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  profileAvatarInitial: { fontSize: 26, color: '#0C0904', fontFamily: 'PlayfairDisplay_700Bold' },
+  profileName:  { fontSize: 18, letterSpacing: 0.2 },
+  profileEmail: { fontSize: 13, opacity: 0.5, marginBottom: 24 },
+  signOutBtn: {
+    width: '100%',
+    backgroundColor: '#FF3B30',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  signOutText: { fontSize: 15, color: '#FFFFFF', letterSpacing: 0.4 },
 
   // Event card
   eventCard: {
@@ -847,15 +936,7 @@ const sc = StyleSheet.create({
 
   // QR section
   qrCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 18,
     alignSelf: 'center',
-    ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10 },
-      android: { elevation: 6 },
-      default: {},
-    }),
   },
   qrActions: { flexDirection: 'row', gap: 10 },
   qrBtn: {
