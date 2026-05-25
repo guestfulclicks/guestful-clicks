@@ -116,16 +116,8 @@ export default function EventTypeScreen() {
   useEffect(() => {
     (async () => {
       try {
-        // getSession reads from local cache — no network needed, never hangs
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
-        const fallbackTypes = FALLBACK_HOST_TYPES;
-
-        if (!user) {
-          setEventTypes(fallbackTypes);
-          setRoleLoading(false);
-          return;
-        }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
         const { data: userData } = await supabase
           .from('users')
@@ -137,17 +129,11 @@ export default function EventTypeScreen() {
         const countryCode = userData?.country_code as string | undefined;
         if (userRole) setRole(userRole);
 
-        // Show fallback immediately — user sees cards without waiting for event_categories fetch
-        const fallback = userRole === 'organiser' ? FALLBACK_ORGANISER_TYPES : FALLBACK_HOST_TYPES;
-        setEventTypes(fallback);
-        setRoleLoading(false);
-
-        // Fetch from DB in background and update if rows exist
         const eventTypeFilter = userRole === 'organiser'
           ? ['public', 'both']
           : ['private', 'both'];
 
-        let query = supabase
+        const query = supabase
           .from('event_categories')
           .select('key, icon, title')
           .eq('is_active', true)
@@ -155,15 +141,21 @@ export default function EventTypeScreen() {
           .order('sort_order', { ascending: true });
 
         if (countryCode) {
-          query = query.contains('country_codes', [countryCode]);
+          query.contains('country_codes', [countryCode]);
         }
 
         const { data: categories } = await query;
-        if (categories && categories.length > 0) {
-          setEventTypes(categories.map((c) => ({ key: c.key, icon: c.icon, title: c.title })));
-        }
+
+        const fallback = userRole === 'organiser' ? FALLBACK_ORGANISER_TYPES : FALLBACK_HOST_TYPES;
+        setEventTypes(
+          categories && categories.length > 0
+            ? categories.map((c) => ({ key: c.key, icon: c.icon, title: c.title }))
+            : fallback,
+        );
       } catch {
-        setEventTypes(FALLBACK_HOST_TYPES);
+        const fallback = role === 'organiser' ? FALLBACK_ORGANISER_TYPES : FALLBACK_HOST_TYPES;
+        setEventTypes(fallback);
+      } finally {
         setRoleLoading(false);
       }
     })();
