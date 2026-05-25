@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import {
@@ -282,6 +283,7 @@ export default function InvitationCardScreen() {
   const { draft, update } = useCreateEvent();
   const { eventName, revealTime, aesthetic } = draft;
 
+  const insets = useSafeAreaInsets();
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [hostName, setHostName] = useState('');
@@ -421,7 +423,7 @@ export default function InvitationCardScreen() {
       </ScrollView>
 
       {/* Footer — always enabled */}
-      <View style={[styles.footer, { backgroundColor: theme.background }]}>
+      <View style={[styles.footer, { backgroundColor: theme.background, paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.footerLeft}>
           <Text style={[styles.footerLabel, { color: theme.text, fontFamily: serif }]}>Cover</Text>
           <Text style={[styles.footerValue, { fontFamily: serifBold }]}>
@@ -517,7 +519,7 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: H_PAD, paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    paddingBottom: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.08)',
     gap: 16,

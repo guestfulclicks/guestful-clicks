@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   useFonts,
@@ -211,6 +212,7 @@ async function fetchPricingConfig(_role: UserRole) {
 export default function GuestCountScreen() {
   const { draft, update } = useCreateEvent();
 
+  const insets = useSafeAreaInsets();
   const [theme, setTheme]         = useState(DEFAULT_THEME);
   const [role, setRole]           = useState<UserRole | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
@@ -355,7 +357,7 @@ export default function GuestCountScreen() {
       </ScrollView>
 
       {/* Footer */}
-      <View style={[s.footer, { backgroundColor: theme.background }]}>
+      <View style={[s.footer, { backgroundColor: theme.background, paddingBottom: insets.bottom + 24 }]}>
         {/* Summary line */}
         <View style={s.summaryRow}>
           {!isOrganiser && selectedIdx !== null && (
@@ -444,7 +446,7 @@ const s = StyleSheet.create({
   // Footer
   footer: {
     paddingHorizontal: H_PAD, paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    paddingBottom: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.08)',
     gap: 10,

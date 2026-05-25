@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   useFonts,
@@ -200,6 +201,7 @@ async function sendRevealPushToParticipants(
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function HostDashboard() {
+  const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular, PlayfairDisplay_700Bold });
   const serif     = fontsLoaded ? 'PlayfairDisplay_400Regular' : undefined;
   const serifBold = fontsLoaded ? 'PlayfairDisplay_700Bold'    : undefined;
@@ -504,7 +506,7 @@ export default function HostDashboard() {
             data={events}
             keyExtractor={item => item.id}
             style={{ flex: 1 }}
-            contentContainerStyle={sc.listContent}
+            contentContainerStyle={[sc.listContent, { paddingBottom: insets.bottom + 24 }]}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => {
               const cs = eventStats[item.id] ?? { guestCount: 0, photoCount: 0 };
@@ -768,7 +770,7 @@ const sc = StyleSheet.create({
   newFilmBtn:  { backgroundColor: GOLD, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
   newFilmBtnText: { fontSize: 14, color: '#0C0904', letterSpacing: 0.3 },
 
-  listContent: { paddingHorizontal: H_PAD, paddingTop: 12, paddingBottom: 40 },
+  listContent: { paddingHorizontal: H_PAD, paddingTop: 12 },
 
   // Empty state
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: H_PAD, gap: 12 },

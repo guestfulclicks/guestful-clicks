@@ -134,35 +134,6 @@ const ab = StyleSheet.create({
   label: { fontSize: 11, letterSpacing: 0.5, textAlign: 'center', opacity: 0.8 },
 });
 
-// ── Supabase event insert ──────────────────────────────────────────────────
-
-async function insertEvent(
-  draft: ReturnType<typeof useCreateEvent>['draft'],
-  role: UserRole,
-  userId: string,
-  shareCode: string,
-  paymentId: string,
-): Promise<string | null> {
-  const { data, error } = await supabase.from('events').insert({
-    title:           draft.eventName,
-    type:            role === 'organiser' ? 'public' : 'private',
-    host_id:         userId,
-    event_date:      draft.eventDate || null,
-    reveal_time:     draft.revealTime || null,
-    event_end_time:  draft.eventEndTime || null,
-    shot_limit:      role === 'organiser' ? SHOT_LIMITS.public99 : SHOT_LIMITS.privateGuest,
-    aesthetic:       draft.aesthetic || 'original',
-    status:          'active',
-    share_code:      shareCode,
-    invitation_card: draft.invitationCard || null,
-    guest_count:     draft.guestCount,
-    pricing_tier:    draft.pricingTier,
-    event_category:  draft.eventCategory,
-    payment_id:      paymentId,
-  }).select('id').single();
-  if (error) { console.warn('Event insert:', error.message); return null; }
-  return (data as any).id as string;
-}
 
 // ── Main Component ─────────────────────────────────────────────────────────
 
@@ -223,22 +194,60 @@ export default function PricingScreen() {
         eventName:   draft.eventName,
       });
 
-      // ── Payment succeeded ──────────────────────────────────────────────
-      const code    = generateShareCode();
-      const eventId = userId && role
-        ? await insertEvent(draft, role, userId, code, result.razorpay_payment_id)
-        : null;
+      // ── Payment succeeded — fetch live role before insert ─────────────
+      const code = generateShareCode();
+
+      const { data: { user: liveUser } } = await supabase.auth.getUser();
+      if (!liveUser) { setPayError('Authentication error. Please sign in again.'); return; }
+      const { data: userData } = await supabase.from('users').select('role').eq('id', liveUser.id).single();
+      const liveRole    = (userData?.role ?? role ?? 'host') as string;
+      const liveUserId  = liveUser.id;
+
+      console.log('[Pricing] Payment succeeded, inserting event...');
+      console.log('[Pricing] draft:', JSON.stringify(draft));
+      console.log('[Pricing] userId:', liveUserId, 'role:', liveRole);
+
+      const { data, error } = await supabase
+        .from('events')
+        .insert({
+          title:           draft.eventName,
+          type:            liveRole === 'organiser' ? 'public' : 'private',
+          host_id:         liveUserId,
+          event_date:      draft.eventDate || null,
+          event_end_time:  draft.eventEndTime || null,
+          reveal_time:     draft.revealTime || null,
+          shot_limit:      liveRole === 'organiser' ? 18 : SHOT_LIMITS.privateGuest,
+          aesthetic:       draft.aesthetic || 'original',
+          invitation_card: draft.invitationCard || null,
+          share_code:      code,
+          status:          'active',
+          amount_paid:     amount,
+          payment_id:      result.razorpay_payment_id,
+          guest_count:     draft.guestCount,
+          pricing_tier:    draft.pricingTier,
+          event_category:  draft.eventCategory,
+        })
+        .select()
+        .single();
+
+      console.log('[Pricing] Event insert error:', error);
+      console.log('[Pricing] Event insert data:', data);
+
+      if (error) {
+        setPayError(`Event could not be saved: ${error.message}`);
+        return;
+      }
 
       // For organiser events: create a pending payout record
-      if (isOrganiser && eventId && userId) {
+      if (liveRole === 'organiser' && data?.id) {
         const payoutDate = new Date();
         payoutDate.setDate(payoutDate.getDate() + REVENUE_SHARE.payoutWindowStartDay);
         await supabase.from('payouts').insert({
-          event_id:       eventId,
-          organiser_id:   userId,
-          total_collected: 0,          // grows as participants pay
-          status:         'pending',
-          scheduled_date: payoutDate.toISOString().split('T')[0],
+          event_id:        data.id,
+          organiser_id:    liveUserId,
+          total_collected: 0,
+          status:          'pending',
+          scheduled_date:  payoutDate.toISOString().split('T')[0],
         });
       }
 

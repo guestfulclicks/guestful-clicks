@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   useFonts,
@@ -89,6 +90,7 @@ function Logo({ color }: { color: string }) {
 export default function EventTypeScreen() {
   const { update } = useCreateEvent();
 
+  const insets = useSafeAreaInsets();
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [role, setRole] = useState<UserRole | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
@@ -247,7 +249,7 @@ export default function EventTypeScreen() {
       </View>
 
       {/* Continue button — pinned to bottom */}
-      <View style={[styles.footer, { backgroundColor: theme.background }]}>
+      <View style={[styles.footer, { backgroundColor: theme.background, paddingBottom: insets.bottom + 24 }]}>
         <TouchableOpacity
           style={[
             styles.continueBtn,
@@ -382,7 +384,7 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: H_PAD,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+    paddingBottom: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.08)',
   },

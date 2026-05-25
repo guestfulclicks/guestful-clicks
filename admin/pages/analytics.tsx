@@ -656,6 +656,9 @@ export default function AnalyticsPage() {
   const [photos,       setPhotos]       = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
   const [paidPayouts,  setPaidPayouts]  = useState<any[]>([]);
+  const [storageStats, setStorageStats] = useState<any | null>(null);
+  const [expiringEvents, setExpiringEvents] = useState<any[]>([]);
+  const [extendingId, setExtendingId] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -665,20 +668,44 @@ export default function AnalyticsPage() {
       { data: phData },
       { data: ptData },
       { data: poData },
+      { data: saData },
+      { data: expData },
     ] = await Promise.all([
       supabase.from('events').select('id, title, type, status, country, state, city, date, host_id, created_at, latitude, longitude').order('created_at'),
       supabase.from('users').select('id, full_name, email, role, country, created_at, is_banned'),
       supabase.from('photos').select('id, event_id, created_at').order('created_at'),
       supabase.from('participants').select('id, event_id, user_id, amount_paid, tier, shots_used, upload_count, joined_at'),
       supabase.from('payouts').select('id, organiser_id, event_id, amount, status').eq('status', 'paid'),
+      supabase.from('storage_analytics').select('*').single(),
+      supabase.from('events')
+        .select('id, title, type, expires_at, photo_count')
+        .gte('expires_at', new Date().toISOString())
+        .lte('expires_at', new Date(Date.now() + 7 * 86400000).toISOString())
+        .order('expires_at', { ascending: true }),
     ]);
     setEvents(evData ?? []);
     setUsers(usData ?? []);
     setPhotos(phData ?? []);
     setParticipants(ptData ?? []);
     setPaidPayouts(poData ?? []);
+    setStorageStats(saData ?? null);
+    setExpiringEvents(expData ?? []);
     setLoading(false);
   }, []);
+
+  const extendExpiry = async (eventId: string, currentExpiry: string) => {
+    setExtendingId(eventId);
+    const newExpiry = new Date(new Date(currentExpiry).getTime() + 7 * 86400000).toISOString();
+    await supabase.from('events').update({ expires_at: newExpiry }).eq('id', eventId);
+    setExpiringEvents(prev => prev.map(e => e.id === eventId ? { ...e, expires_at: newExpiry } : e));
+    setExtendingId(null);
+  };
+
+  const deleteEventNow = async (eventId: string) => {
+    if (!window.confirm('Permanently delete this event and all its photos?')) return;
+    await supabase.from('events').update({ status: 'deleted', expires_at: new Date().toISOString() }).eq('id', eventId);
+    setExpiringEvents(prev => prev.filter(e => e.id !== eventId));
+  };
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -1302,7 +1329,109 @@ export default function AnalyticsPage() {
             </div>
           </section>
 
-          {/* ── Section 9: Export Center ────────────────────────────────────── */}
+          {/* ── Section 9: Storage & Retention ────────────────────────────── */}
+          <section>
+            <SectionHead title="Storage & Retention" sub="Photo storage usage and expiry management" />
+
+            {/* Storage stat cards */}
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' as const, marginBottom: '20px' }}>
+              {storageStats ? (
+                <>
+                  <StatCard icon="📷" label="Total Photos"         value={(storageStats.total_photos ?? 0).toLocaleString('en-IN')} />
+                  <StatCard icon="💾" label="Est. Storage"         value={`${((storageStats.total_storage_mb ?? 0) / 1024).toFixed(2)} GB`} accent />
+                  <StatCard icon="💸" label="Est. Monthly Cost"    value={`$${(storageStats.estimated_cost_usd ?? 0).toFixed(2)}`} />
+                  <StatCard icon="🌍" label="Public Events"        value={`${storageStats.public_events ?? 0} (${((storageStats.public_storage_mb ?? 0) / 1024).toFixed(1)} GB)`} />
+                  <StatCard icon="🔒" label="Private Events"       value={`${storageStats.private_events ?? 0} (${((storageStats.private_storage_mb ?? 0) / 1024).toFixed(1)} GB)`} />
+                  <StatCard icon="📦" label="Archived Events"      value={`${storageStats.archived_events ?? 0} (${((storageStats.archived_storage_mb ?? 0) / 1024).toFixed(1)} GB)`} />
+                </>
+              ) : (
+                <div style={{ color: '#bbb', fontFamily: MONO, fontSize: '12px', padding: '16px 0' }}>
+                  No storage_analytics view data. Check if the view exists in Supabase.
+                </div>
+              )}
+            </div>
+
+            {/* Expiring soon table */}
+            {expiringEvents.length > 0 && (
+              <div style={{ ...CARD, padding: 0, overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #E8E3DC', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h3 style={{ fontFamily: SERIF, fontSize: '16px', fontWeight: '700', color: '#0C0904' }}>
+                    Expiring Soon
+                  </h3>
+                  <span style={{ fontSize: '12px', fontFamily: MONO, color: '#F59E0B' }}>
+                    {expiringEvents.length} event{expiringEvents.length !== 1 ? 's' : ''} expire within 7 days
+                  </span>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' as const }}>
+                    <thead>
+                      <tr>
+                        {['Event', 'Type', 'Expires', 'Photos', 'Actions'].map(h => (
+                          <th key={h} style={thS}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expiringEvents.map(ev => {
+                        const daysLeft = Math.ceil((new Date(ev.expires_at).getTime() - Date.now()) / 86400000);
+                        return (
+                          <tr key={ev.id}
+                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#FAFAF8'}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
+                          >
+                            <td style={{ ...tdS, fontWeight: '600', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                              {ev.title ?? '—'}
+                            </td>
+                            <td style={{ ...tdS, textTransform: 'capitalize' as const }}>{ev.type ?? '—'}</td>
+                            <td style={{ ...tdS, color: daysLeft <= 1 ? '#EF4444' : '#F59E0B', fontWeight: '600' }}>
+                              {daysLeft === 0 ? 'Today' : `${daysLeft}d`}
+                            </td>
+                            <td style={tdS}>{(ev.photo_count ?? 0).toLocaleString('en-IN')}</td>
+                            <td style={{ ...tdS, whiteSpace: 'nowrap' as const }}>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  onClick={() => extendExpiry(ev.id, ev.expires_at)}
+                                  disabled={extendingId === ev.id}
+                                  style={{
+                                    padding: '5px 12px', borderRadius: '6px',
+                                    border: `1px solid ${GOLD}`, backgroundColor: `${GOLD}18`,
+                                    color: GOLD, fontSize: '12px', fontFamily: MONO,
+                                    cursor: extendingId === ev.id ? 'not-allowed' : 'pointer',
+                                    opacity: extendingId === ev.id ? 0.6 : 1,
+                                  }}
+                                >
+                                  {extendingId === ev.id ? '...' : 'Extend 7 days'}
+                                </button>
+                                <button
+                                  onClick={() => deleteEventNow(ev.id)}
+                                  style={{
+                                    padding: '5px 12px', borderRadius: '6px',
+                                    border: '1px solid #EF4444', backgroundColor: '#EF444418',
+                                    color: '#EF4444', fontSize: '12px', fontFamily: MONO,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Delete Now
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {expiringEvents.length === 0 && (
+              <div style={{ color: '#bbb', fontFamily: MONO, fontSize: '12px', textAlign: 'center', padding: '24px 0' }}>
+                No events expiring in the next 7 days.
+              </div>
+            )}
+          </section>
+
+          {/* ── Section 10: Export Center ───────────────────────────────────── */}
           <section>
             <SectionHead title="Reports" sub="Export data for analysis and accounting" />
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' as const }}>

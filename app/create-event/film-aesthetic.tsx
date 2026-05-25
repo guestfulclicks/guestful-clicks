@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   useFonts,
@@ -213,6 +214,7 @@ function CardDots({ count, active, textColor }: { count: number; active: number;
 
 export default function FilmAestheticScreen() {
   const { update } = useCreateEvent();
+  const insets = useSafeAreaInsets();
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [selected, setSelected] = useState<AestheticKey>('original');
   const [scrollIndex, setScrollIndex] = useState(0);
@@ -362,7 +364,7 @@ export default function FilmAestheticScreen() {
       </ScrollView>
 
       {/* Footer — always enabled */}
-      <View style={[styles.footer, { backgroundColor: theme.background }]}>
+      <View style={[styles.footer, { backgroundColor: theme.background, paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.footerLeft}>
           <Text style={[styles.selectedLabel, { color: theme.text, fontFamily: serif }]}>Style</Text>
           <Text style={[styles.selectedValue, { fontFamily: serifBold }]}>
@@ -442,7 +444,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: H_PAD,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    paddingBottom: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.08)',
     gap: 16,

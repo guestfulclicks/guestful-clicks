@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   useFonts,
@@ -235,6 +236,7 @@ function TierPill({ amount }: { amount: number }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function OrganiserDashboard() {
+  const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular, PlayfairDisplay_700Bold });
   const serif     = fontsLoaded ? 'PlayfairDisplay_400Regular' : undefined;
   const serifBold = fontsLoaded ? 'PlayfairDisplay_700Bold'    : undefined;
@@ -721,7 +723,7 @@ export default function OrganiserDashboard() {
         <View style={sc.backBtn} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
 
         {/* ── Event header ──────────────────────────────────────────── */}
         <View style={sc.eventHeader}>

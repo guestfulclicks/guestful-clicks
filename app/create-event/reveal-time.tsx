@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   useFonts,
@@ -236,35 +237,15 @@ function Logo({ color }: { color: string }) {
   );
 }
 
-// ── Blurred photo mockup ───────────────────────────────────────────────────
+// ── Blurred preview rectangles ─────────────────────────────────────────────
 
-function MockPhoto({ label, textColor }: { label: string; textColor: string }) {
+function BlurRect({ hue }: { hue: string }) {
   return (
-    <View style={mp.card}>
-      {/* Abstract blurred shapes */}
-      <View style={[mp.blob, { top: 10, left: 8, width: '70%', height: 36, backgroundColor: 'rgba(180,170,160,0.2)' }]} />
-      <View style={[mp.blob, { top: 52, left: 20, width: '50%', height: 24, backgroundColor: 'rgba(160,150,140,0.15)' }]} />
-      <View style={[mp.blob, { top: 80, left: 8, width: '80%', height: 20, backgroundColor: 'rgba(140,130,120,0.12)' }]} />
-      <View style={[mp.blob, { bottom: 32, left: 12, width: '40%', height: 18, backgroundColor: 'rgba(200,190,180,0.1)' }]} />
-      {/* Frosted overlay */}
-      <View style={mp.frost} />
-      {/* Label */}
-      <View style={mp.labelRow}>
-        <View style={mp.avatar} />
-        <Text style={[mp.labelText, { color: textColor }]}>{label}</Text>
-      </View>
+    <View style={{ flex: 1, height: 150, borderRadius: 12, overflow: 'hidden', backgroundColor: hue }}>
+      <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.48)' }} />
     </View>
   );
 }
-
-const mp = StyleSheet.create({
-  card: { flex: 1, height: 150, borderRadius: 12, backgroundColor: 'rgba(100,90,80,0.22)', overflow: 'hidden', justifyContent: 'flex-end', padding: 10 },
-  blob: { position: 'absolute', borderRadius: 6 },
-  frost: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
-  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  avatar: { width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.25)' },
-  labelText: { fontSize: 11, letterSpacing: 0.4, opacity: 0.8 },
-});
 
 // ── Inline mini-calendar for custom reveal date ────────────────────────────
 
@@ -356,6 +337,7 @@ const HOST_OPTIONS: { key: RevealOption; icon: string; label: string; sub: strin
 
 export default function RevealTimeScreen() {
   const { draft, update } = useCreateEvent();
+  const insets = useSafeAreaInsets();
 
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [role, setRole] = useState<UserRole | null>(null);
@@ -492,8 +474,8 @@ export default function RevealTimeScreen() {
         {/* ── Blurred preview ── */}
         <View style={styles.previewWrap}>
           <View style={styles.photoRow}>
-            <MockPhoto label="Guest 1" textColor={theme.text} />
-            <MockPhoto label="Guest 2" textColor={theme.text} />
+            <BlurRect hue="rgba(80,60,40,0.55)" />
+            <BlurRect hue="rgba(40,60,80,0.55)" />
           </View>
           {/* Live reveal pill */}
           <View style={styles.pillWrap} pointerEvents="none">
@@ -584,7 +566,7 @@ export default function RevealTimeScreen() {
       </ScrollView>
 
       {/* Footer */}
-      <View style={[styles.footer, { backgroundColor: theme.background }]}>
+      <View style={[styles.footer, { backgroundColor: theme.background, paddingBottom: insets.bottom + 24 }]}>
         <TouchableOpacity
           style={[
             styles.nextBtn,
@@ -693,7 +675,6 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: H_PAD,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.08)',
   },

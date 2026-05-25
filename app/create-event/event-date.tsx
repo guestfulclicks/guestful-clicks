@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   useFonts,
@@ -305,6 +306,7 @@ function Logo({ color }: { color: string }) {
 export default function EventDateScreen() {
   const { update } = useCreateEvent();
 
+  const insets = useSafeAreaInsets();
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [role, setRole] = useState<UserRole | null>(null);
 
@@ -551,7 +553,7 @@ export default function EventDateScreen() {
       </ScrollView>
 
       {/* Footer — Skip + Continue */}
-      <View style={[styles.footer, { backgroundColor: theme.background }]}>
+      <View style={[styles.footer, { backgroundColor: theme.background, paddingBottom: insets.bottom + 24 }]}>
         <TouchableOpacity
           style={styles.skipBtn}
           onPress={handleSkip}
@@ -677,7 +679,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: H_PAD,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    paddingBottom: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.08)',
     gap: 16,
