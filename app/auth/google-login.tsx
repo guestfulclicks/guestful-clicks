@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Platform,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -93,67 +94,10 @@ export default function GoogleLogin() {
       if (oauthError) throw oauthError;
       if (!data.url) throw new Error('Could not generate sign-in URL.');
 
-      console.log('[Auth] Opening browser for OAuth...');
-      // openAuthSessionAsync monitors the redirect URL and returns it directly —
-      // no Linking event timing issues.
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-      console.log('[Auth] Browser result type:', result.type);
-
-      if (result.type !== 'success') {
-        // On Android, Chrome Custom Tab closes when the deep link opens the app,
-        // which triggers 'dismiss'. Check if _layout.tsx already completed auth.
-        const { data: { session: existing } } = await supabase.auth.getSession();
-        if (!existing) setLoading(false);
-        // If session exists, _layout.tsx onAuthStateChange handles navigation.
-        return;
-      }
-
-      const callbackUrl = (result as { type: 'success'; url: string }).url;
-      console.log('[Auth] Callback URL:', callbackUrl.substring(0, 80));
-
-      // Parse both PKCE (?code=) and implicit (#access_token=) flows
-      let session = null as import('@supabase/supabase-js').Session | null;
-
-      const codeMatch = callbackUrl.match(/[?&]code=([^&\s#]+)/);
-      if (codeMatch) {
-        // PKCE flow
-        console.log('[Auth] PKCE flow — exchanging code...');
-        const code = decodeURIComponent(codeMatch[1]);
-        const { data, error: exchError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchError) throw exchError;
-        session = data.session;
-      } else {
-        // Implicit flow — tokens are in the hash fragment
-        console.log('[Auth] Implicit flow — setting session from tokens...');
-        const hash = callbackUrl.includes('#') ? callbackUrl.split('#')[1] : '';
-        const params = new URLSearchParams(hash);
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token') ?? '';
-        if (!accessToken) throw new Error('No access token in redirect URL.');
-        const { data, error: sessError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (sessError) throw sessError;
-        session = data.session;
-      }
-
-      if (!session?.user) throw new Error('No session returned.');
-
-      const sbUser = session.user;
-      const { data: existing } = await supabase
-        .from('users').select('id').eq('id', sbUser.id).single();
-      if (!existing) {
-        const { error: ins } = await supabase.from('users').insert({
-          id:        sbUser.id,
-          full_name: sbUser.user_metadata?.full_name ?? sbUser.user_metadata?.name ?? '',
-          email:     sbUser.email ?? '',
-        });
-        if (ins && ins.code !== '23505') throw ins;
-      }
-
-      console.log('[Auth] Sign-in complete, navigating...');
-      router.replace('/auth/select-role');
+      // Open in system browser. _layout.tsx Linking listener handles the
+      // callback, exchanges the code, creates the user record, and navigates.
+      await Linking.openURL(data.url);
+      // Stay in loading state — _layout.tsx will navigate away when done.
     } catch (e) {
       console.log('[Auth] Error:', e);
       setError(e instanceof Error ? e.message : 'Sign-in failed. Please try again.');
