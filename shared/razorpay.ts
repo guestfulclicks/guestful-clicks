@@ -50,17 +50,40 @@ export async function openRazorpayCheckout(
       backdropclose: false,
       escape:        false,
     },
-    method: {
-      upi:        true,
-      card:       true,
-      netbanking: true,
-      wallet:     true,
-      paylater:   false,
-    },
+    /*
+     * Using config.display.blocks (Razorpay Custom Checkout) to explicitly
+     * show UPI first with all three flows: collect (enter VPA), intent
+     * (deep-link to GPay / PhonePe / BHIM), and qr (scannable QR code).
+     * Avoid mixing the plain `method` map with `config.display.blocks`
+     * — when both are present the SDK can silently drop methods.
+     */
     config: {
       display: {
-        hide: [{ method: 'paylater' }],
-        preferences: { show_default_blocks: true },
+        blocks: {
+          upi: {
+            name: 'Pay via UPI',
+            instruments: [
+              { method: 'upi', flows: ['intent'] },   // GPay, PhonePe, BHIM etc.
+              { method: 'upi', flows: ['collect'] },  // Enter UPI ID (VPA)
+              { method: 'upi', flows: ['qr'] },       // Scan QR
+            ],
+          },
+          card: {
+            name: 'Credit / Debit Card',
+            instruments: [{ method: 'card' }],
+          },
+          nb: {
+            name: 'Net Banking',
+            instruments: [{ method: 'netbanking' }],
+          },
+          wallet: {
+            name: 'Wallets',
+            instruments: [{ method: 'wallet' }],
+          },
+        },
+        // UPI listed first so it opens by default
+        sequence: ['block.upi', 'block.card', 'block.nb', 'block.wallet'],
+        preferences: { show_default_blocks: false },
       },
     },
   };
