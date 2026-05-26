@@ -9,8 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import {
   useFonts,
   PlayfairDisplay_400Regular,
@@ -18,8 +17,11 @@ import {
 } from '@expo-google-fonts/playfair-display';
 import { supabase } from '../../supabase/client';
 
-// Required for iOS to close the browser after redirect
-WebBrowser.maybeCompleteAuthSession();
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  scopes: ['profile', 'email'],
+  offlineAccess: false,
+});
 
 // ── Theme ──────────────────────────────────────────────────────────────────────
 
@@ -83,32 +85,32 @@ export default function GoogleLogin() {
     setLoading(true);
 
     try {
-      const redirectUrl = 'guestfulclicks://auth/callback';
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
 
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      if (response.type !== 'success') {
+        setLoading(false);
+        return;
+      }
+
+      const idToken = response.data?.idToken;
+      if (!idToken) throw new Error('No ID token returned from Google.');
+
+      const { error: supabaseError } = await supabase.auth.signInWithIdToken({
         provider: 'google',
-        options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
+        token: idToken,
       });
 
-      if (oauthError) throw oauthError;
-      if (!data.url) throw new Error('Could not generate sign-in URL.');
-
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-
-      // On both 'success' (iOS) and 'dismiss' (Android), callback.tsx handles
-      // the code exchange via useLocalSearchParams. Wait up to 8s for SIGNED_IN.
-      await new Promise<void>((resolve) => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-          if (event === 'SIGNED_IN') { subscription.unsubscribe(); resolve(); }
-        });
-        setTimeout(() => { subscription.unsubscribe(); resolve(); }, 8000);
-      });
-
-      // Always reset loading — navigation unmounts this screen if sign-in succeeded
-      setLoading(false);
-    } catch (e) {
-      console.log('[Auth] Error:', e);
-      setError(e instanceof Error ? e.message : 'Sign-in failed. Please try again.');
+      if (supabaseError) throw supabaseError;
+      // onAuthStateChange SIGNED_IN in _layout.tsx handles navigation
+    } catch (e: any) {
+      if (e?.code === statusCodes.SIGN_IN_CANCELLED) {
+        // user cancelled — no error shown
+      } else if (e?.code === statusCodes.IN_PROGRESS) {
+        // already signing in
+      } else {
+        setError(e?.message ?? 'Sign-in failed. Please try again.');
+      }
       setLoading(false);
     }
   };
