@@ -19,91 +19,54 @@ export default function RootLayout() {
     PlayfairDisplay_700Bold,
   });
 
-  // ── Auth check and redirect on app start ──────────────────────────────────
+  // ── Single auth listener handles both app start and sign-in/out ──────────
+  // INITIAL_SESSION fires on every cold start (session or null).
+  // SIGNED_IN fires after a fresh sign-in.
+  // SIGNED_OUT fires on sign-out.
 
   useEffect(() => {
-    const checkAuthAndNavigate = async () => {
+    const navigateByRole = async (userId: string) => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-
-          const role = userData?.role as UserRole | undefined;
-          if (role === 'host') {
-            setTimeout(() => router.replace('/dashboard/host-dashboard'), 100);
-          } else if (role === 'organiser') {
-            setTimeout(() => router.replace('/dashboard/organiser-dashboard'), 100);
-          } else if (role === 'admin') {
-            setTimeout(() => router.replace('/admin/events'), 100);
-          } else {
-            // Signed in but role not set yet (e.g. new user mid-onboarding)
-            setTimeout(() => router.replace('/auth/select-role'), 100);
-          }
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', userId)
+          .single();
+        const role = userData?.role as UserRole | undefined;
+        if (role === 'host') {
+          setTimeout(() => router.replace('/dashboard/host-dashboard'), 100);
+        } else if (role === 'organiser') {
+          setTimeout(() => router.replace('/dashboard/organiser-dashboard'), 100);
+        } else if (role === 'admin') {
+          setTimeout(() => router.replace('/admin/events'), 100);
         } else {
-          const participant = await AsyncStorage.getItem('@guestful_participant');
-          if (participant) {
-            setTimeout(() => router.replace('/gallery/reveal-screen'), 100);
-          } else {
-            setTimeout(() => router.replace('/onboarding/slides'), 100);
-          }
+          setTimeout(() => router.replace('/auth/select-role'), 100);
         }
-      } catch (error) {
-        console.error('Auth check error:', error);
-        setTimeout(() => router.replace('/onboarding/slides'), 100);
+      } catch {
+        setTimeout(() => router.replace('/auth/select-role'), 100);
       }
     };
 
-    const timer = setTimeout(() => {
-      checkAuthAndNavigate();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-
-  // ── Supabase auth state listener ──────────────────────────────────────────
-
-  useEffect(() => {
-    // IMPORTANT: callback must NOT be async — supabase-js v2 awaits all
-    // subscribers before resolving setSession/exchangeCodeForSession, so an
-    // async callback here causes a deadlock. Fire async work in a void IIFE.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === 'SIGNED_IN') {
-          void (async () => {
-            const { data: userData } = await supabase
-              .from('users')
-              .select('role')
-              .eq('id', session?.user?.id)
-              .single();
-
-            const role = userData?.role as UserRole | undefined;
-            if (role === 'host') {
-              setTimeout(() => router.replace('/dashboard/host-dashboard'), 100);
-            } else if (role === 'organiser') {
-              setTimeout(() => router.replace('/dashboard/organiser-dashboard'), 100);
-            } else if (role === 'admin') {
-              setTimeout(() => router.replace('/admin/events'), 100);
-            } else {
-              setTimeout(() => router.replace('/auth/select-role'), 100);
-            }
-          })();
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+          if (session?.user) {
+            void navigateByRole(session.user.id);
+          } else {
+            void (async () => {
+              const participant = await AsyncStorage.getItem('@guestful_participant');
+              setTimeout(() => router.replace(participant ? '/gallery/reveal-screen' : '/onboarding/slides'), 100);
+            })();
+          }
         } else if (event === 'SIGNED_OUT') {
-          void (async () => {
-            await AsyncStorage.removeItem('@guestful_participant');
+          void AsyncStorage.removeItem('@guestful_participant').then(() => {
             setTimeout(() => router.replace('/onboarding/slides'), 100);
-          })();
+          });
         }
       },
     );
 
-    return () => {
-      subscription?.unsubscribe();
-    };
+    return () => subscription?.unsubscribe();
   }, []);
 
   // ── Notification listeners ────────────────────────────────────────────────
