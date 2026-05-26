@@ -140,10 +140,6 @@ export default function RootLayout() {
     };
   }, []);
 
-  if (!fontsLoaded) {
-    return null; // Fonts loading — render nothing briefly
-  }
-
   return (
     <Stack
       screenOptions={{
