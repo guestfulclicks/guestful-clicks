@@ -3,7 +3,6 @@ import { Stack, router } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { PlayfairDisplay_400Regular, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import * as Notifications from 'expo-notifications';
-import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase/client';
 import { registerForPushNotifications } from '../shared/notifications';
@@ -65,83 +64,6 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, []);
 
-  // ── OAuth deep-link handler ───────────────────────────────────────────────
-  // _layout is always mounted, so this listener is registered before any
-  // navigation happens — eliminating the race condition where the Linking
-  // 'url' event fires before callback.tsx mounts.
-
-  useEffect(() => {
-    const handleOAuthUrl = async (url: string) => {
-      if (!url.includes('auth/callback')) return;
-      const match = url.match(/[?&#]code=([^&\s#]+)/);
-      const code = match ? decodeURIComponent(match[1]) : null;
-
-      if (!code) {
-        // Implicit flow — Supabase sends tokens in the hash fragment
-        if (!url.includes('access_token=')) return;
-        const hash = url.includes('#') ? url.split('#')[1] : '';
-        const params = new URLSearchParams(hash);
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token') ?? '';
-        if (!accessToken) return;
-        console.log('[Layout] OAuth implicit flow tokens received, setting session...');
-        try {
-          const { data: { session }, error } = await supabase.auth.setSession({
-            access_token:  accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) { console.log('[Layout] setSession error:', error.message); return; }
-          if (!session?.user) return;
-          const sbUser = session.user;
-          const { data: existing } = await supabase
-            .from('users').select('id').eq('id', sbUser.id).single();
-          if (!existing) {
-            await supabase.from('users').insert({
-              id:        sbUser.id,
-              full_name: sbUser.user_metadata?.full_name ?? sbUser.user_metadata?.name ?? '',
-              email:     sbUser.email ?? '',
-            });
-          }
-          // onAuthStateChange SIGNED_IN fires and handles navigation
-        } catch (e) {
-          console.log('[Layout] Implicit flow error:', e);
-        }
-        return;
-      }
-
-      // Guard: if google-login.tsx already exchanged the code on success, skip to avoid double exchange
-      const { data: { session: alreadySession } } = await supabase.auth.getSession();
-      if (alreadySession) return;
-
-      console.log('[Layout] OAuth code received, exchanging...');
-      try {
-        const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) { console.log('[Layout] Exchange error:', error.message); return; }
-        if (!session?.user) return;
-
-        const sbUser = session.user;
-        const { data: existing } = await supabase
-          .from('users').select('id').eq('id', sbUser.id).single();
-        if (!existing) {
-          await supabase.from('users').insert({
-            id:        sbUser.id,
-            full_name: sbUser.user_metadata?.full_name ?? sbUser.user_metadata?.name ?? '',
-            email:     sbUser.email ?? '',
-          });
-        }
-        // onAuthStateChange SIGNED_IN fires next and handles navigation
-      } catch (e) {
-        console.log('[Layout] OAuth handler error:', e);
-      }
-    };
-
-    // Cold start: app opened directly by the deep link
-    Linking.getInitialURL().then(url => { if (url) handleOAuthUrl(url); });
-
-    // Warm start: app already running when deep link arrives
-    const sub = Linking.addEventListener('url', (e) => handleOAuthUrl(e.url));
-    return () => sub.remove();
-  }, []);
 
   // ── Supabase auth state listener ──────────────────────────────────────────
 
