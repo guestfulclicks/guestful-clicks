@@ -207,6 +207,11 @@ export default function PricingScreen() {
       console.log('[Pricing] draft:', JSON.stringify(draft));
       console.log('[Pricing] userId:', liveUserId, 'role:', liveRole);
 
+      // eventEndTime is stored as "HH:MM" — combine with eventDate for a full timestamptz
+      const eventEndTimestamp = (draft.eventDate && draft.eventEndTime)
+        ? new Date(`${draft.eventDate}T${draft.eventEndTime}:00`).toISOString()
+        : null;
+
       const { data, error } = await supabase
         .from('events')
         .insert({
@@ -214,7 +219,7 @@ export default function PricingScreen() {
           type:            liveRole === 'organiser' ? 'public' : 'private',
           host_id:         liveUserId,
           event_date:      draft.eventDate || null,
-          event_end_time:  draft.eventEndTime || null,
+          event_end_time:  eventEndTimestamp,
           reveal_time:     draft.revealTime || null,
           shot_limit:      liveRole === 'organiser' ? 18 : SHOT_LIMITS.privateGuest,
           aesthetic:       draft.aesthetic || 'original',

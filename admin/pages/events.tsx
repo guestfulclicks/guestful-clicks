@@ -548,9 +548,9 @@ function EventDetailPanel({ ev, detail, detailLoading, onClose, onRefresh }: {
                   <div style={sh}>Join URL</div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#F5F3EF', borderRadius: '6px', padding: '10px 12px' }}>
                     <code style={{ flex: 1, fontSize: '11px', color: '#555', fontFamily: MONO, wordBreak: 'break-all' }}>
-                      https://join.guestfulclicks.com/{ev.share_code}
+                      https://join.guestfulclicks.com/guest/join?code={ev.share_code}
                     </code>
-                    <Btn size="sm" onClick={() => copy(`https://join.guestfulclicks.com/${ev.share_code}`)}>Copy</Btn>
+                    <Btn size="sm" onClick={() => copy(`https://join.guestfulclicks.com/guest/join?code=${ev.share_code}`)}>Copy</Btn>
                   </div>
                 </div>
               )}

@@ -51,7 +51,7 @@ const GREEN      = '#4CAF50';
 const BLUE       = '#5B8AF0';
 const RED        = '#FF5252';
 const H_PAD      = 24;
-const JOIN_BASE  = 'https://join.guestfulclicks.com';
+const JOIN_BASE  = 'https://join.guestfulclicks.com/guest/join?code=';
 const { width: SW } = Dimensions.get('window');
 
 // Tier display meta
@@ -466,7 +466,7 @@ export default function OrganiserDashboard() {
 
   // ── Share / QR actions ─────────────────────────────────────────────────────
 
-  const shareUrl = selectedEvent ? `${JOIN_BASE}/${selectedEvent.share_code}` : '';
+  const shareUrl = selectedEvent ? `${JOIN_BASE}${selectedEvent.share_code}` : '';
 
   const handleShareLink = async () => {
     await Share.share({ message: `Join ${selectedEvent?.title}: ${shareUrl}` }).catch(() => {});

@@ -90,10 +90,12 @@ export function getCountryCode(): string {
 
 // ── buildJoinURL ──────────────────────────────────────────────────────────────
 // Builds the full join URL for an event share code.
-// Example: "https://join.guestfulclicks.com/GF4X9K2M"
+// Query-param format matches useLocalSearchParams in app/guest/join.tsx and
+// maps to the /guest/join route via the Android intent filter / iOS App Link.
+// Example: "https://join.guestfulclicks.com/guest/join?code=GF4X9K2M"
 
 export function buildJoinURL(shareCode: string): string {
-  return `https://join.guestfulclicks.com/${shareCode}`;
+  return `https://join.guestfulclicks.com/guest/join?code=${shareCode}`;
 }
 
 // ── buildWhatsAppMessage ──────────────────────────────────────────────────────

@@ -51,7 +51,7 @@ const GOLD_T     = 'rgba(212,168,83,0.08)';
 const GOLD_B     = 'rgba(212,168,83,0.25)';
 const GREEN      = '#4CAF50';
 const H_PAD      = 24;
-const JOIN_BASE  = 'https://join.guestfulclicks.com';
+const JOIN_BASE  = 'https://join.guestfulclicks.com/guest/join?code=';
 const { width: SW } = Dimensions.get('window');
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -401,7 +401,7 @@ export default function HostDashboard() {
 
   const handleShareLink = async () => {
     if (!selectedEvent) return;
-    const url = `${JOIN_BASE}/${selectedEvent.share_code}`;
+    const url = `${JOIN_BASE}${selectedEvent.share_code}`;
     await Share.share({ message: `Join my film: ${url}`, title: selectedEvent.title }).catch(() => {});
   };
 
@@ -420,7 +420,7 @@ export default function HostDashboard() {
 
   const handleWhatsApp = async () => {
     if (!selectedEvent) return;
-    const url = `${JOIN_BASE}/${selectedEvent.share_code}`;
+    const url = `${JOIN_BASE}${selectedEvent.share_code}`;
     const wa  = `whatsapp://send?text=${encodeURIComponent(`Join my film: ${url}`)}`;
     (await Linking.canOpenURL(wa)) ? Linking.openURL(wa) : Alert.alert('WhatsApp not installed');
   };
@@ -577,7 +577,7 @@ export default function HostDashboard() {
 
   if (!selectedEvent) return null;
 
-  const shareUrl = `${JOIN_BASE}/${selectedEvent.share_code}`;
+  const shareUrl = `${JOIN_BASE}${selectedEvent.share_code}`;
   const amount   = parseInt(selectedEvent.pricing_tier || '0', 10);
 
   return (

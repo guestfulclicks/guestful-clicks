@@ -77,7 +77,7 @@ interface EventRow {
   title: string;
   type: 'private' | 'public';
   host_id: string;
-  date: string;
+  event_date: string;
   reveal_time: string;
   aesthetic: string;
   invitation_card: string | null;
@@ -155,7 +155,7 @@ export default function GuestJoin() {
       try {
         const { data: ev, error } = await supabase
           .from('events')
-          .select('id, title, type, host_id, date, reveal_time, aesthetic, invitation_card, shot_limit, status')
+          .select('id, title, type, host_id, event_date, reveal_time, aesthetic, invitation_card, shot_limit, status')
           .eq('share_code', code)
           .single();
 
@@ -450,7 +450,7 @@ export default function GuestJoin() {
         <View style={s.infoSection}>
           <Text style={s.invitedBy}>👤 Invited by {hostName}</Text>
           <Text style={s.eventTitle}>{event?.title}</Text>
-          <Text style={s.eventDate}>{formatDate(event?.date ?? '')}</Text>
+          <Text style={s.eventDate}>{formatDate(event?.event_date ?? '')}</Text>
           <Text style={s.shotInfo}>📷 {event?.shot_limit ?? 18} shots available</Text>
           <Text style={s.revealInfo}>Reveals on {formatReveal(event?.reveal_time ?? '')}</Text>
         </View>
