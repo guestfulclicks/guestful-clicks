@@ -436,7 +436,10 @@ export default function RevealTimeScreen() {
 
   const handleNext = () => {
     if (!canContinue || !computeRevealDt) return;
-    update({ revealTime: computeRevealDt.toISOString() });
+    update({
+      revealTime: computeRevealDt.toISOString(),
+      revealMode: role === 'organiser' ? 'after' : (option ?? 'after'),
+    });
     router.push('/create-event/film-aesthetic');
   };
 

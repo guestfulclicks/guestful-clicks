@@ -56,6 +56,10 @@ interface EventData {
   title: string;
   aesthetic: string;
   reveal_time: string;
+  event_end_time: string | null;
+  status: string;
+  reveal_mode: string | null;
+  expires_at: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -161,7 +165,7 @@ export default function CameraScreen() {
 
         const { data: ev } = await supabase
           .from('events')
-          .select('id, title, aesthetic, reveal_time, event_end_time')
+          .select('id, title, aesthetic, reveal_time, event_end_time, status, reveal_mode, expires_at')
           .eq('id', p.event_id)
           .single();
 
@@ -169,13 +173,10 @@ export default function CameraScreen() {
           setEvent(ev);
           setSelAesthetic(ev.aesthetic?.toLowerCase() ?? 'original');
 
-          // Block uploads if more than 24 hours past the event end time
-          if (ev.event_end_time) {
-            const windowEnd = new Date(ev.event_end_time).getTime() + 24 * 3600 * 1000;
-            if (Date.now() > windowEnd) {
-              setUploadWindowClosed(true);
-              setUploadWindowEndedAt(ev.event_end_time as string);
-            }
+          // Upload window closes at expires_at (the server retention date)
+          if (ev.expires_at && Date.now() > new Date(ev.expires_at).getTime()) {
+            setUploadWindowClosed(true);
+            setUploadWindowEndedAt(ev.expires_at);
           }
         }
 
@@ -258,11 +259,15 @@ export default function CameraScreen() {
           .from('event-photos')
           .getPublicUrl(path);
 
+        // Photos are immediately visible if the gallery is already live
+        const isRevealed =
+          event.status === 'revealed' || event.reveal_mode === 'during';
+
         await supabase.from('photos').insert({
           event_id:       event.id,
           participant_id: participant.id,
           url:            publicUrl,
-          is_revealed:    false,
+          is_revealed:    isRevealed,
           uploaded_at:    new Date().toISOString(),
         });
 

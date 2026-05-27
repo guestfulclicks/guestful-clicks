@@ -70,6 +70,7 @@ interface EventRow {
   invitation_card: string | null;
   pricing_tier: string;
   event_end_time: string | null;
+  reveal_mode: string | null;
 }
 
 interface CardStats { guestCount: number; photoCount: number; }
@@ -196,6 +197,54 @@ async function sendRevealPushToParticipants(
       ),
     });
   }
+}
+
+// ── Host participant helpers ──────────────────────────────────────────────────
+
+function uuidv4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+// Creates a participant row for the host if one doesn't already exist, caches
+// it in AsyncStorage so subsequent calls skip the DB insert.
+async function ensureHostParticipant(
+  eventId: string,
+  hostName: string,
+): Promise<{ id: string; qr_token: string; event_id: string; name: string; shot_limit: number } | null> {
+  const cacheKey = `@guestful_host_${eventId}`;
+  const cached = await AsyncStorage.getItem(cacheKey);
+  if (cached) {
+    try { return JSON.parse(cached); } catch { /* fall through to create */ }
+  }
+
+  const { data, error } = await supabase
+    .from('participants')
+    .insert({
+      event_id:   eventId,
+      name:       hostName,
+      qr_token:   uuidv4(),
+      tier:       'free',
+      shot_limit: 50,
+      joined_at:  new Date().toISOString(),
+    })
+    .select('id, qr_token')
+    .single();
+
+  if (error || !data) return null;
+
+  const part = {
+    id:         data.id,
+    qr_token:   data.qr_token,
+    event_id:   eventId,
+    name:       hostName,
+    shot_limit: 50,
+  };
+
+  await AsyncStorage.setItem(cacheKey, JSON.stringify(part));
+  return part;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -450,6 +499,36 @@ export default function HostDashboard() {
     Alert.alert('Done!', `Saved ${saved} of ${photos.length} photos.`);
   };
 
+  // ── Host photo upload & gallery ───────────────────────────────────────────
+
+  const handleAddPhotos = useCallback(async () => {
+    if (!selectedEvent) return;
+    const part = await ensureHostParticipant(
+      selectedEvent.id,
+      userInfo?.name ?? 'Host',
+    );
+    if (!part) {
+      Alert.alert('Error', 'Could not set up camera access. Please try again.');
+      return;
+    }
+    await AsyncStorage.setItem('@guestful_participant', JSON.stringify(part));
+    router.push('/camera/camera-screen' as any);
+  }, [selectedEvent, userInfo]);
+
+  const handleViewGallery = useCallback(async () => {
+    if (!selectedEvent) return;
+    const part = await ensureHostParticipant(
+      selectedEvent.id,
+      userInfo?.name ?? 'Host',
+    );
+    if (!part) {
+      Alert.alert('Error', 'Could not access gallery. Please try again.');
+      return;
+    }
+    await AsyncStorage.setItem('@guestful_participant', JSON.stringify(part));
+    router.push('/gallery/reveal-screen' as any);
+  }, [selectedEvent, userInfo]);
+
   // ── Guards ────────────────────────────────────────────────────────────────
 
   if (!fontsLoaded || isLoading) {
@@ -644,6 +723,16 @@ export default function HostDashboard() {
           )}
         </View>
 
+        {/* Add photos — active & revealed events */}
+        {(selectedEvent.status === 'active' || selectedEvent.status === 'revealed') && (
+          <View style={[sc.section, { borderColor: 'rgba(255,255,255,0.08)' }]}>
+            <Text style={[sc.sectionHeading, { color: TXT, fontFamily: serifBold }]}>YOUR PHOTOS</Text>
+            <TouchableOpacity style={sc.addPhotosBtn} onPress={handleAddPhotos} activeOpacity={0.85}>
+              <Text style={[sc.addPhotosBtnText, { fontFamily: serifBold }]}>📷  Add Your Photos</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* QR code */}
         <View style={[sc.section, { borderColor: 'rgba(255,255,255,0.08)' }]}>
           <Text style={[sc.sectionHeading, { color: TXT, fontFamily: serifBold }]}>SHARE YOUR FILM</Text>
@@ -678,7 +767,7 @@ export default function HostDashboard() {
             Scheduled: {fmtRevealTime(selectedEvent.reveal_time)}
           </Text>
 
-          {selectedEvent.status === 'active' ? (
+          {selectedEvent.status === 'active' && selectedEvent.reveal_mode !== 'during' ? (
             <TouchableOpacity
               style={[sc.revealBtn, isRevealing && sc.revealBtnDisabled]}
               onPress={handleReveal}
@@ -691,12 +780,16 @@ export default function HostDashboard() {
                 <Text style={[sc.revealBtnText, { fontFamily: serifBold }]}>Reveal Now</Text>
               )}
             </TouchableOpacity>
+          ) : selectedEvent.status === 'active' && selectedEvent.reveal_mode === 'during' ? (
+            <Text style={[sc.revealTimeText, { color: TXT, fontFamily: serifBold, opacity: 0.8 }]}>
+              ● Live — guests see photos as they upload
+            </Text>
           ) : selectedEvent.status === 'revealed' ? (
             <View style={sc.revealedState}>
               <Text style={[sc.revealedMsg, { fontFamily: serif }]}>✓ Gallery is live</Text>
               <TouchableOpacity
                 style={[sc.viewGalleryBtn, { borderColor: GOLD }]}
-                onPress={() => router.push('/gallery/reveal-screen' as any)}
+                onPress={handleViewGallery}
                 activeOpacity={0.85}
               >
                 <Text style={[sc.viewGalleryBtnText, { fontFamily: serifBold }]}>View Gallery →</Text>
@@ -974,6 +1067,17 @@ const sc = StyleSheet.create({
     backgroundColor: GOLD_T,
   },
   viewGalleryBtnText: { fontSize: 14, color: GOLD, letterSpacing: 1.4 },
+
+  // Add photos section
+  addPhotosBtn: {
+    borderWidth: 1,
+    borderColor: GOLD_B,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    backgroundColor: GOLD_T,
+  },
+  addPhotosBtnText: { fontSize: 15, color: GOLD, letterSpacing: 0.3 },
 
   // Download section
   savingWrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },

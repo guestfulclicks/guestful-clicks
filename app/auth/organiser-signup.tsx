@@ -24,6 +24,13 @@ const WW = '#F0E8D5';
 const MUTED = 'rgba(240,232,213,0.50)';
 
 interface KYCDraft {
+  // Step 0: Organiser type
+  organiser_type: 'event_organiser' | 'travel_agent' | '';
+  agency_name: string;
+  iata_code: string;
+  trip_type: 'domestic' | 'international' | 'both' | '';
+  avg_group_size: string;
+
   // Step 1: Company
   company_name: string;
   company_type: string;
@@ -75,6 +82,12 @@ interface KYCDraft {
 }
 
 const EMPTY_DRAFT: KYCDraft = {
+  organiser_type: '',
+  agency_name: '',
+  iata_code: '',
+  trip_type: '',
+  avg_group_size: '',
+
   company_name: '',
   company_type: '',
   gst_number: '',
@@ -285,6 +298,39 @@ const styles = StyleSheet.create({
     color: WW,
     fontSize: 13,
   },
+  typeCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  typeCardActive: {
+    borderColor: GOLD,
+    backgroundColor: 'rgba(212,168,83,0.08)',
+  },
+  typeCardIcon:  { fontSize: 28, marginTop: 2 },
+  typeCardTitle: { fontSize: 16, fontWeight: '700', color: WW, marginBottom: 6 },
+  typeCardDesc:  { fontSize: 12, color: MUTED, lineHeight: 18, marginBottom: 8 },
+  typeCardBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(212,168,83,0.15)',
+    borderRadius: 20,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+  },
+  typeCardBadgeText: { fontSize: 11, color: GOLD, fontWeight: '600' },
+  typeCardCheck: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: GOLD,
+    justifyContent: 'center', alignItems: 'center',
+    marginTop: 2,
+  },
+
   resultScreen: {
     flex: 1,
     justifyContent: 'center',
@@ -317,7 +363,7 @@ const styles = StyleSheet.create({
 });
 
 export default function OrganiserSignup() {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -369,6 +415,8 @@ export default function OrganiserSignup() {
 
   const validateStep = (): boolean => {
     switch (step) {
+      case 0:
+        return draft.organiser_type === 'event_organiser' || draft.organiser_type === 'travel_agent';
       case 1:
         return (
           draft.company_name.length > 0 &&
@@ -430,13 +478,54 @@ export default function OrganiserSignup() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Update users table with organiser_type for routing/display
+      await supabase
+        .from('users')
+        .update({ organiser_type: draft.organiser_type })
+        .eq('id', user.id);
+
       // Create KYC record
       const { data: kycData, error: kycError } = await supabase
         .from('organiser_kyc')
         .insert({
-          organiser_id: user.id,
-          ...draft,
-          verification_status: 'pending',
+          organiser_id:   user.id,
+          organiser_type: draft.organiser_type,
+          agency_name:    draft.organiser_type === 'travel_agent' ? draft.agency_name : null,
+          iata_code:      draft.organiser_type === 'travel_agent' ? draft.iata_code   : null,
+          trip_type:      draft.organiser_type === 'travel_agent' ? draft.trip_type   : null,
+          avg_group_size: draft.organiser_type === 'travel_agent' && draft.avg_group_size
+                            ? parseInt(draft.avg_group_size, 10) : null,
+          company_name:            draft.company_name,
+          company_type:            draft.company_type,
+          gst_number:              draft.gst_number,
+          office_address_line_1:   draft.office_address_line_1,
+          office_address_line_2:   draft.office_address_line_2,
+          office_city:             draft.office_city,
+          office_state:            draft.office_state,
+          office_pincode:          draft.office_pincode,
+          pan_number:              draft.pan_number,
+          aadhaar_number:          draft.aadhaar_number,
+          account_holder_name:     draft.account_holder_name,
+          bank_name:               draft.bank_name,
+          account_number:          draft.account_number,
+          ifsc_code:               draft.ifsc_code,
+          account_type:            draft.account_type,
+          upi_id:                  draft.upi_id,
+          contact_person_1_name:   draft.contact_person_1_name,
+          contact_person_1_gender: draft.contact_person_1_gender,
+          contact_person_1_mobile: draft.contact_person_1_mobile,
+          contact_person_1_email:  draft.contact_person_1_email,
+          contact_person_2_name:   draft.contact_person_2_name,
+          contact_person_2_gender: draft.contact_person_2_gender,
+          contact_person_2_mobile: draft.contact_person_2_mobile,
+          contact_person_2_email:  draft.contact_person_2_email,
+          contact_person_3_name:   draft.contact_person_3_name,
+          contact_person_3_gender: draft.contact_person_3_gender,
+          contact_person_3_mobile: draft.contact_person_3_mobile,
+          contact_person_3_email:  draft.contact_person_3_email,
+          digital_signature:       draft.digital_signature,
+          terms_accepted:          draft.terms_accepted,
+          verification_status:     'pending',
         })
         .select()
         .single();
@@ -525,15 +614,68 @@ export default function OrganiserSignup() {
     <View style={styles.container}>
       {/* Progress bar */}
       <View style={styles.progressBar}>
-        {[1, 2, 3, 4, 5].map((s) => (
+        {[0, 1, 2, 3, 4, 5].map((s) => (
           <View key={s} style={styles.step}>
             <View style={[styles.stepDot, s <= step && styles.stepDotActive]} />
-            <Text style={styles.stepLabel}>{['Co', 'ID', 'BA', 'CT', 'RV'][s - 1]}</Text>
+            <Text style={styles.stepLabel}>{['TY', 'Co', 'ID', 'BA', 'CT', 'RV'][s]}</Text>
           </View>
         ))}
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Step 0: Who are you? */}
+        {step === 0 && (
+          <>
+            <Text style={styles.heading}>How will you use Guestful Clicks?</Text>
+            <Text style={styles.subheading}>
+              Choose your organiser type. This determines your pricing and features.
+            </Text>
+
+            {(
+              [
+                {
+                  type: 'event_organiser' as const,
+                  icon: '🎪',
+                  title: 'Event Organiser',
+                  desc: 'I run public events — concerts, sports, music festivals, corporate gatherings. I create the event and guests pay to participate. I earn 25% of all collections.',
+                  badge: 'Earn 25% revenue share',
+                },
+                {
+                  type: 'travel_agent' as const,
+                  icon: '✈️',
+                  title: 'Travel Agent',
+                  desc: 'I manage group trips and holiday programmes. I pay per traveller upfront and my clients shoot and share freely — no payment friction during the trip.',
+                  badge: 'Pay per traveller, keep your margin',
+                },
+              ] as const
+            ).map((opt) => {
+              const active = draft.organiser_type === opt.type;
+              return (
+                <TouchableOpacity
+                  key={opt.type}
+                  style={[styles.typeCard, active && styles.typeCardActive]}
+                  onPress={() => saveDraft({ ...draft, organiser_type: opt.type })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.typeCardIcon}>{opt.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.typeCardTitle, active && { color: GOLD }]}>{opt.title}</Text>
+                    <Text style={styles.typeCardDesc}>{opt.desc}</Text>
+                    <View style={styles.typeCardBadge}>
+                      <Text style={styles.typeCardBadgeText}>{opt.badge}</Text>
+                    </View>
+                  </View>
+                  {active && (
+                    <View style={styles.typeCardCheck}>
+                      <Text style={{ color: BG, fontSize: 12, fontWeight: '700' }}>✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
+
         {/* Step 1: Company */}
         {step === 1 && (
           <>
@@ -655,6 +797,76 @@ export default function OrganiserSignup() {
               </TouchableOpacity>
               {draft.address_proof_back_uri && <Text style={styles.uploadedLabel}>Document uploaded</Text>}
             </View>
+
+            {/* Travel agent extra fields */}
+            {draft.organiser_type === 'travel_agent' && (
+              <>
+                <Text style={[styles.label, { marginTop: 16, marginBottom: 4 }]}>
+                  TRAVEL AGENCY DETAILS
+                </Text>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Travel Agency Name *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={draft.agency_name}
+                    onChangeText={(text) => saveDraft({ ...draft, agency_name: text })}
+                    placeholder="Your agency name"
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>IATA Code</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={draft.iata_code}
+                    onChangeText={(text) => saveDraft({ ...draft, iata_code: text.toUpperCase() })}
+                    placeholder="Optional — if IATA registered"
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    autoCapitalize="characters"
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Type of Trips</Text>
+                  <View style={styles.row}>
+                    {(['domestic', 'international', 'both'] as const).map((t) => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[
+                          styles.button,
+                          draft.trip_type === t ? styles.buttonPrimary : styles.buttonSecondary,
+                          { flex: 1 },
+                        ]}
+                        onPress={() => saveDraft({ ...draft, trip_type: t })}
+                      >
+                        <Text
+                          style={[
+                            styles.buttonText,
+                            draft.trip_type === t ? styles.buttonTextPrimary : styles.buttonTextSecondary,
+                          ]}
+                        >
+                          {t.charAt(0).toUpperCase() + t.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Average Group Size</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={draft.avg_group_size}
+                    onChangeText={(text) => saveDraft({ ...draft, avg_group_size: text })}
+                    placeholder="How many travellers per trip?"
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    keyboardType="numeric"
+                  />
+                </View>
+              </>
+            )}
           </>
         )}
 
@@ -908,6 +1120,26 @@ export default function OrganiserSignup() {
             <Text style={styles.heading}>Review & Submit</Text>
             <Text style={styles.subheading}>Confirm all details before submitting</Text>
 
+            {/* Account type banner */}
+            <View style={[styles.typeCard, styles.typeCardActive, { marginBottom: 20 }]}>
+              <Text style={styles.typeCardIcon}>
+                {draft.organiser_type === 'travel_agent' ? '✈️' : '🎪'}
+              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.typeCardTitle, { color: GOLD }]}>Account Type</Text>
+                <Text style={styles.typeCardDesc}>
+                  {draft.organiser_type === 'travel_agent' ? 'Travel Agent' : 'Event Organiser'}
+                </Text>
+                <View style={styles.typeCardBadge}>
+                  <Text style={styles.typeCardBadgeText}>
+                    {draft.organiser_type === 'travel_agent'
+                      ? 'Pay per traveller, keep your margin'
+                      : 'Earn 25% revenue share'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
             <View style={styles.disclaimerBox}>
               <Text style={styles.disclaimerText}>
                 {disclaimer || 'By submitting your KYC, you certify that all information is true and accurate.'}
@@ -951,7 +1183,7 @@ export default function OrganiserSignup() {
         )}
 
         <View style={styles.buttonGroup}>
-          {step > 1 && (
+          {step > 0 && (
             <TouchableOpacity
               style={[styles.button, styles.buttonSecondary]}
               onPress={() => setStep(step - 1)}

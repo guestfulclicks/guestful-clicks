@@ -22,6 +22,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import {
   useFonts,
   PlayfairDisplay_400Regular,
@@ -65,6 +66,8 @@ interface ParticipantData { id: string; event_id: string; name: string; }
 interface EventData {
   id: string; title: string; aesthetic: string;
   reveal_time: string; status: string; expires_at?: string | null;
+  event_end_time?: string | null;
+  reveal_mode?: string | null;
 }
 interface PhotoItem {
   id: string; url: string; participant_id: string; uploaded_at: string;
@@ -394,6 +397,7 @@ const sd = StyleSheet.create({
 
 export default function RevealScreen() {
   const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular, PlayfairDisplay_700Bold });
+  const serifBold = fontsLoaded ? 'PlayfairDisplay_700Bold' : undefined;
 
   const [screenState, setScreenState] = useState<ScreenState>('loading');
   const [participant, setParticipant] = useState<ParticipantData | null>(null);
@@ -426,14 +430,21 @@ export default function RevealScreen() {
   // Expiry
   const [expiresWarning, setExpiresWarning] = useState<string | null>(null);
 
+  // Upload window: open until expires_at
+  const [uploadWindowOpen, setUploadWindowOpen] = useState(true);
+
+  // Live reveal mode
+  const [isLive, setIsLive] = useState(false);
+
   // Animations
   const pulseScale = useRef(new Animated.Value(1)).current;
 
-  const lightboxRef  = useRef<FlatList<PhotoItem>>(null);
-  const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const statsRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const channelRef   = useRef<any>(null);
-  const isRevealingRef = useRef(false);
+  const lightboxRef         = useRef<FlatList<PhotoItem>>(null);
+  const timerRef            = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statsRef            = useRef<ReturnType<typeof setInterval> | null>(null);
+  const channelRef          = useRef<any>(null);
+  const livePhotosChannelRef = useRef<any>(null);
+  const isRevealingRef      = useRef(false);
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -447,11 +458,16 @@ export default function RevealScreen() {
 
         const { data: ev } = await supabase
           .from('events')
-          .select('id, title, aesthetic, reveal_time, status, expires_at')
+          .select('id, title, aesthetic, reveal_time, status, expires_at, event_end_time, reveal_mode')
           .eq('id', p.event_id)
           .single();
         if (!ev) return;
         setEvent(ev);
+
+        // Upload window: open until expires_at
+        if (ev.expires_at) {
+          setUploadWindowOpen(Date.now() < new Date(ev.expires_at).getTime());
+        }
 
         // Expiry warning
         if (ev.expires_at) {
@@ -461,7 +477,15 @@ export default function RevealScreen() {
           }
         }
 
-        if (ev.status === 'revealed') {
+        if (ev.reveal_mode === 'during') {
+          // Live mode: gallery is always open, photos stream in real time
+          await fetchAllPhotos(ev.id);
+          await fetchGalleryPage(ev.id, 0);
+          await fetchMemories(ev.id, p.id);
+          setIsLive(true);
+          setupLivePhotos(ev.id);
+          setScreenState('gallery');
+        } else if (ev.status === 'revealed') {
           await fetchAllPhotos(ev.id);
           await fetchGalleryPage(ev.id, 0);
           await fetchMemories(ev.id, p.id);
@@ -477,9 +501,10 @@ export default function RevealScreen() {
     })();
 
     return () => {
-      timerRef.current  && clearInterval(timerRef.current);
-      statsRef.current  && clearInterval(statsRef.current);
-      channelRef.current && supabase.removeChannel(channelRef.current);
+      timerRef.current            && clearInterval(timerRef.current);
+      statsRef.current            && clearInterval(statsRef.current);
+      channelRef.current          && supabase.removeChannel(channelRef.current);
+      livePhotosChannelRef.current && supabase.removeChannel(livePhotosChannelRef.current);
     };
   }, []);
 
@@ -492,7 +517,12 @@ export default function RevealScreen() {
       setCountdown(cd);
       if (!cd.d && !cd.h && !cd.m && !cd.s) {
         clearInterval(timerRef.current!);
-        triggerReveal(event.id);
+        if (event.reveal_mode === 'after') {
+          // Auto-unlock: write to DB so all guests see it simultaneously
+          void autoUnlockAfterEvent(event.id);
+        } else {
+          triggerReveal(event.id);
+        }
       }
     }, 1000);
     return () => { timerRef.current && clearInterval(timerRef.current); };
@@ -534,6 +564,50 @@ export default function RevealScreen() {
         })
       .subscribe();
     channelRef.current = ch;
+  }
+
+  // Subscribes to new photo inserts for live (during) events.
+  // Fetches the full row (with participant join) then prepends to gallery.
+  function setupLivePhotos(eventId: string) {
+    const ch = supabase
+      .channel(`live-photos-${eventId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'photos', filter: `event_id=eq.${eventId}` },
+        async (payload: any) => {
+          const { data } = await supabase
+            .from('photos')
+            .select('id, url, participant_id, uploaded_at, participants(name, upload_count)')
+            .eq('id', payload.new.id)
+            .single();
+          if (data) {
+            const photo = data as PhotoItem;
+            setGalleryPhotos(prev => [photo, ...prev]);
+            setAllPhotos(prev => [...prev, photo]);
+            setTotalPhotos(prev => prev + 1);
+            setPhotoCount(prev => prev + 1);
+          }
+        },
+      )
+      .subscribe();
+    livePhotosChannelRef.current = ch;
+  }
+
+  // For 'after' reveal_mode: idempotently write revealed status to DB,
+  // then the existing realtime subscription calls triggerReveal for all clients.
+  async function autoUnlockAfterEvent(eventId: string) {
+    await supabase
+      .from('events')
+      .update({ status: 'revealed' })
+      .eq('id', eventId)
+      .eq('status', 'active');
+    await supabase
+      .from('photos')
+      .update({ is_revealed: true })
+      .eq('event_id', eventId)
+      .eq('is_revealed', false);
+    // Call triggerReveal directly in case realtime is slow
+    triggerReveal(eventId);
   }
 
   async function triggerReveal(eventId: string) {
@@ -788,6 +862,16 @@ export default function RevealScreen() {
           </View>
         )}
 
+        {uploadWindowOpen && (
+          <TouchableOpacity
+            style={s.addPhotosWaitBtn}
+            onPress={() => router.push('/camera/camera-screen' as any)}
+            activeOpacity={0.85}
+          >
+            <Text style={s.addPhotosWaitBtnText}>📷  Add Your Photos</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={s.waitDivider} />
         <Text style={s.waitNote}>We'll notify you when the gallery opens.</Text>
         <View style={{ height: 40 }} />
@@ -874,7 +958,18 @@ export default function RevealScreen() {
             </TouchableOpacity>
           )}
         </View>
+        {isLive && (
+          <View style={s.livePill}>
+            <View style={s.liveDot} />
+            <Text style={[s.liveText, { fontFamily: serifBold }]}>LIVE</Text>
+          </View>
+        )}
         <Text style={s.galPhotoCount}>{totalPhotos} photos</Text>
+        {uploadWindowOpen && (
+          <TouchableOpacity style={s.dlAllBtn} onPress={() => router.push('/camera/camera-screen' as any)}>
+            <Text style={s.dlAllIcon}>📷</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={s.dlAllBtn} onPress={downloadAll}>
           <Text style={s.dlAllIcon}>⬇️</Text>
         </TouchableOpacity>
@@ -1150,6 +1245,24 @@ const s = StyleSheet.create({
   },
   watchRevealBtnText: { fontSize: 18, fontFamily: 'PlayfairDisplay_700Bold', color: BG, letterSpacing: 0.5 },
   skipToGallery:      { fontSize: 14, color: MUTED, textDecorationLine: 'underline' },
+
+  // LIVE indicator
+  livePill:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginRight: 8 },
+  liveDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' },
+  liveText:  { fontSize: 11, color: '#4CAF50', letterSpacing: 1.5 },
+
+  // Add photos button (waiting screen)
+  addPhotosWaitBtn: {
+    borderWidth: 1,
+    borderColor: GOLD_B,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    backgroundColor: GOLD_T,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  addPhotosWaitBtnText: { fontSize: 15, color: GOLD, letterSpacing: 0.4, fontFamily: 'PlayfairDisplay_700Bold' },
 
   // STATE 4 — Gallery top bar
   galTopBar: {

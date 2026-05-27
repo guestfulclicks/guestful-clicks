@@ -212,8 +212,8 @@ export default function PricingScreen() {
         ? new Date(`${draft.eventDate}T${draft.eventEndTime}:00`).toISOString()
         : null;
 
-      // expires_at: 7 days for organiser/public events, 15 days for private events
-      const retentionDays = liveRole === 'organiser' ? 7 : 15;
+      // expires_at: 15 days for organiser/public events, 30 days for private events
+      const retentionDays = liveRole === 'organiser' ? 15 : 30;
       const expiresAt = draft.eventDate
         ? new Date(new Date(draft.eventDate).getTime() + retentionDays * 86400000).toISOString()
         : null;
@@ -227,6 +227,7 @@ export default function PricingScreen() {
           event_date:      draft.eventDate || null,
           event_end_time:  eventEndTimestamp,
           reveal_time:     draft.revealTime || null,
+          reveal_mode:     draft.revealMode || 'after',
           shot_limit:      liveRole === 'organiser' ? 18 : SHOT_LIMITS.privateGuest,
           aesthetic:       draft.aesthetic || 'original',
           invitation_card: draft.invitationCard || null,

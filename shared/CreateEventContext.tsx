@@ -8,6 +8,7 @@ export interface CreateEventDraft {
   eventDate: string;       // ISO date string  "YYYY-MM-DD"
   eventEndTime: string;    // 24-h "HH:MM" — used to auto-compute organiser reveal
   revealTime: string;      // ISO datetime string — set on reveal-time screen
+  revealMode: string;      // 'during' | 'after' | 'custom'
   aesthetic: string;
   invitationCard: string;
   guestCount: number | null;
@@ -20,6 +21,7 @@ const EMPTY_DRAFT: CreateEventDraft = {
   eventDate: '',
   eventEndTime: '',
   revealTime: '',
+  revealMode: 'after',
   aesthetic: '',
   invitationCard: '',
   guestCount: null,
