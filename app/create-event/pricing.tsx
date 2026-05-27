@@ -212,6 +212,12 @@ export default function PricingScreen() {
         ? new Date(`${draft.eventDate}T${draft.eventEndTime}:00`).toISOString()
         : null;
 
+      // expires_at: 7 days for organiser/public events, 15 days for private events
+      const retentionDays = liveRole === 'organiser' ? 7 : 15;
+      const expiresAt = draft.eventDate
+        ? new Date(new Date(draft.eventDate).getTime() + retentionDays * 86400000).toISOString()
+        : null;
+
       const { data, error } = await supabase
         .from('events')
         .insert({
@@ -231,6 +237,7 @@ export default function PricingScreen() {
           guest_count:     draft.guestCount,
           pricing_tier:    draft.pricingTier,
           event_category:  draft.eventCategory,
+          expires_at:      expiresAt,
         })
         .select()
         .single();

@@ -419,8 +419,9 @@ export default function RevealScreen() {
   const [savingProgress, setSavingProgress]   = useState<{ c: number; t: number } | null>(null);
 
   // Personal memories
-  const [memories, setMemories]       = useState<Set<string>>(new Set());
+  const [memories, setMemories]         = useState<Set<string>>(new Set());
   const [memoryLoading, setMemoryLoading] = useState<Set<string>>(new Set());
+  const [hiddenPhotos, setHiddenPhotos] = useState<Set<string>>(new Set());
 
   // Expiry
   const [expiresWarning, setExpiresWarning] = useState<string | null>(null);
@@ -584,11 +585,12 @@ export default function RevealScreen() {
   async function fetchMemories(eventId: string, participantId: string) {
     const { data } = await supabase
       .from('personal_memories')
-      .select('photo_ids')
+      .select('photo_ids, hidden_photo_ids')
       .eq('event_id', eventId)
       .eq('participant_id', participantId)
       .single();
-    if (data?.photo_ids) setMemories(new Set(data.photo_ids as string[]));
+    if (data?.photo_ids)        setMemories(new Set(data.photo_ids as string[]));
+    if (data?.hidden_photo_ids) setHiddenPhotos(new Set(data.hidden_photo_ids as string[]));
   }
 
   const openGallery = useCallback(async () => {
@@ -606,17 +608,23 @@ export default function RevealScreen() {
 
   // ── Gallery derived data ──────────────────────────────────────────────────
 
+  // Exclude personally hidden photos from all views
+  const visiblePhotos = useMemo(
+    () => galleryPhotos.filter(p => !hiddenPhotos.has(p.id)),
+    [galleryPhotos, hiddenPhotos]
+  );
+
   const currentPhotos = useMemo<PhotoItem[]>(() => {
     if (activeTab === 'highlights')
-      return [...galleryPhotos]
+      return [...visiblePhotos]
         .sort((a, b) => (getParticipant(b.participants)?.upload_count ?? 0) - (getParticipant(a.participants)?.upload_count ?? 0))
-        .slice(0, Math.max(1, Math.ceil(galleryPhotos.length * 0.2)));
+        .slice(0, Math.max(1, Math.ceil(visiblePhotos.length * 0.2)));
     if (activeTab === 'my')
-      return galleryPhotos.filter(p => p.participant_id === participant?.id);
+      return visiblePhotos.filter(p => p.participant_id === participant?.id);
     if (activeTab === 'memories')
-      return galleryPhotos.filter(p => memories.has(p.id));
-    return galleryPhotos;
-  }, [galleryPhotos, activeTab, participant, memories]);
+      return visiblePhotos.filter(p => memories.has(p.id));
+    return visiblePhotos;
+  }, [visiblePhotos, activeTab, participant, memories]);
 
   const leftPhotos  = useMemo(() => currentPhotos.filter((_, i) => i % 2 === 0), [currentPhotos]);
   const rightPhotos = useMemo(() => currentPhotos.filter((_, i) => i % 2 === 1), [currentPhotos]);
@@ -641,36 +649,34 @@ export default function RevealScreen() {
     setMemoryLoading(prev => { const s = new Set(prev); s.delete(photoId); return s; });
   }, [participant, event, memories]);
 
-  // ── Delete photo ──────────────────────────────────────────────────────────
+  // ── Hide photo (personal view only — never permanently deletes) ──────────
 
-  const deletePhoto = useCallback((photo: PhotoItem) => {
+  const hidePhoto = useCallback((photoId: string) => {
     Alert.alert(
-      'Remove Photo',
-      'Remove this photo from the gallery?',
+      'Hide Photo',
+      'Hide this from your view? Other guests still see it.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Hide',
           style: 'destructive',
           onPress: async () => {
-            await supabase.from('photo_deletions').insert({
-              photo_id:        photo.id,
-              deleted_by:      participant?.id,
-              deleted_by_role: 'participant',
-              reason:          'user_request',
-            });
-            await supabase.from('photos').update({
-              is_deleted: true,
-              deleted_at: new Date().toISOString(),
-            }).eq('id', photo.id);
-            setGalleryPhotos(prev => prev.filter(p => p.id !== photo.id));
-            setAllPhotos(prev => prev.filter(p => p.id !== photo.id));
-            setTotalPhotos(n => n - 1);
+            const next = new Set(hiddenPhotos);
+            next.add(photoId);
+            setHiddenPhotos(next);
+
+            if (participant && event) {
+              await supabase.from('personal_memories').upsert({
+                event_id:         event.id,
+                participant_id:   participant.id,
+                hidden_photo_ids: Array.from(next),
+              }, { onConflict: 'event_id,participant_id' });
+            }
           },
         },
       ]
     );
-  }, [participant]);
+  }, [participant, event, hiddenPhotos]);
 
   // ── Download helpers ──────────────────────────────────────────────────────
 
@@ -955,25 +961,21 @@ export default function RevealScreen() {
                       </Text>
                       <View style={s.photoMetaActions}>
                         {/* Heart */}
-                        {activeTab === 'all' && (
-                          <TouchableOpacity
-                            onPress={() => toggleMemory(photo.id)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Text style={[s.heartIcon, inMem && s.heartActive]}>
-                              {inMem ? '♥' : '♡'}
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-                        {/* Delete */}
-                        {isOwn && (
-                          <TouchableOpacity
-                            onPress={() => deletePhoto(photo)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Text style={s.deleteIcon}>✕</Text>
-                          </TouchableOpacity>
-                        )}
+                        <TouchableOpacity
+                          onPress={() => toggleMemory(photo.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Text style={[s.heartIcon, inMem && s.heartActive]}>
+                            {inMem ? '♥' : '♡'}
+                          </Text>
+                        </TouchableOpacity>
+                        {/* Hide from personal view */}
+                        <TouchableOpacity
+                          onPress={() => hidePhoto(photo.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Text style={s.deleteIcon}>✕</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   </View>

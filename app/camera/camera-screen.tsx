@@ -135,6 +135,8 @@ export default function CameraScreen() {
   const [uploadList, setUploadList]           = useState<string[]>([]);
   const [uploadStatuses, setUploadStatuses]   = useState<UploadStatus[]>([]);
   const [uploadDone, setUploadDone]           = useState(0);
+  const [uploadWindowClosed, setUploadWindowClosed] = useState(false);
+  const [uploadWindowEndedAt, setUploadWindowEndedAt] = useState<string | null>(null);
 
   // PWA install prompt
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -159,13 +161,22 @@ export default function CameraScreen() {
 
         const { data: ev } = await supabase
           .from('events')
-          .select('id, title, aesthetic, reveal_time')
+          .select('id, title, aesthetic, reveal_time, event_end_time')
           .eq('id', p.event_id)
           .single();
 
         if (ev) {
           setEvent(ev);
           setSelAesthetic(ev.aesthetic?.toLowerCase() ?? 'original');
+
+          // Block uploads if more than 24 hours past the event end time
+          if (ev.event_end_time) {
+            const windowEnd = new Date(ev.event_end_time).getTime() + 24 * 3600 * 1000;
+            if (Date.now() > windowEnd) {
+              setUploadWindowClosed(true);
+              setUploadWindowEndedAt(ev.event_end_time as string);
+            }
+          }
         }
 
         setScreenState('camera');
@@ -290,6 +301,21 @@ export default function CameraScreen() {
 
   if (!permission?.granted) {
     return <PermissionScreen onRequest={requestPermission} />;
+  }
+
+  if (uploadWindowClosed) {
+    const endedDate = uploadWindowEndedAt
+      ? new Date(uploadWindowEndedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+      : 'the event end time';
+    return (
+      <View style={[s.root, s.center]}>
+        <StatusBar barStyle="light-content" />
+        <Text style={s.permTitle}>Upload Window Closed</Text>
+        <Text style={s.permBody}>
+          {'The photo upload window ended on ' + endedDate + '. The gallery opens at reveal time.'}
+        </Text>
+      </View>
+    );
   }
 
   const evAesthetic = event?.aesthetic?.toLowerCase() ?? 'original';

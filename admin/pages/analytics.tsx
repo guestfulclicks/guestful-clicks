@@ -884,7 +884,7 @@ export default function AnalyticsPage() {
   const topEventsByPhotos = (() => {
     const map: Record<string, number> = {};
     photos.forEach(ph => { map[ph.event_id] = (map[ph.event_id] ?? 0) + 1; });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5)
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10)
       .map(([eid, count]) => {
         const ev = events.find(e => e.id === eid);
         const pt = partByEvent[eid] ?? { count: 0 };
