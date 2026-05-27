@@ -9,19 +9,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Guestful" />
-  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0C0904;
-      --gold: #D4A853;
-      --cream: #F0E8D5;
-      --muted: rgba(240,232,213,0.5);
-      --dim: rgba(240,232,213,0.28);
-      --border: rgba(212,168,83,0.22);
+      --bg:       #0C0904;
+      --gold:     #D4A853;
+      --cream:    #F0E8D5;
+      --muted:    rgba(240,232,213,0.6);
+      --faint:    rgba(240,232,213,0.35);
+      --border:   rgba(212,168,83,0.25);
       --input-bg: rgba(255,255,255,0.07);
-      --gold-glow: rgba(212,168,83,0.12);
+      --card-bg:  rgba(212,168,83,0.08);
+      --sep:      rgba(240,232,213,0.1);
     }
 
     html, body {
@@ -32,181 +33,81 @@
       overscroll-behavior: none;
     }
 
-    /* ── Install banner ── */
-    .install-banner {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 999;
-      background: #1a130a;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 16px;
-      padding-top: max(14px, env(safe-area-inset-top));
-    }
-    .install-banner.hidden { display: none; }
-    .install-icon { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; }
-    .install-info { flex: 1; }
-    .install-info strong { font-size: 14px; color: var(--cream); display: block; }
-    .install-info span { font-size: 12px; color: var(--muted); margin-top: 2px; display: block; }
-    .install-add-btn {
-      background: var(--gold);
-      color: var(--bg);
-      border: none;
-      border-radius: 6px;
-      padding: 8px 16px;
-      font-size: 13px;
-      font-weight: bold;
-      cursor: pointer;
-      flex-shrink: 0;
-      font-family: inherit;
-    }
-    .install-dismiss {
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 22px;
-      cursor: pointer;
-      padding: 0 4px;
-      line-height: 1;
-      flex-shrink: 0;
-    }
-
-    /* ── iOS share banner ── */
-    .ios-banner {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      z-index: 999;
-      background: #1a130a;
-      border-top: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px 16px;
-      padding-bottom: max(16px, env(safe-area-inset-bottom));
-      font-size: 13px;
-      color: var(--cream);
-    }
-    .ios-banner.hidden { display: none; }
-    .ios-banner span:first-child { font-size: 22px; flex-shrink: 0; }
-    .ios-banner .ios-text { flex: 1; line-height: 1.5; }
-
-    /* ── Layout shell ── */
+    /* ── App shell ── */
     #app {
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-bottom: env(safe-area-inset-bottom);
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
     }
 
-    /* ── Header ── */
     .header {
       width: 100%;
       display: flex;
       justify-content: center;
-      padding: 24px 24px 0;
+      padding: 20px 24px 0;
     }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .logo-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--gold);
-    }
-    .logo-text {
-      font-size: 10px;
-      letter-spacing: 3.5px;
-      color: var(--cream);
-      font-family: Georgia, serif;
-    }
+    .logo { display: flex; align-items: center; gap: 8px; }
+    .logo-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+    .logo-text { font-size: 10px; letter-spacing: 3.5px; color: var(--cream); }
 
     /* ── Screens ── */
     .screen {
       flex: 1;
       width: 100%;
-      max-width: 420px;
+      max-width: 440px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 32px 24px 40px;
-      text-align: center;
+      padding: 28px 20px 32px;
     }
     .screen.hidden { display: none !important; }
 
     /* ── Loading ── */
     .spinner {
-      width: 40px; height: 40px;
+      width: 38px; height: 38px;
       border: 2px solid var(--border);
       border-top-color: var(--gold);
       border-radius: 50%;
       animation: spin 0.9s linear infinite;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-text { color: var(--muted); font-size: 15px; }
 
     /* ── Error ── */
-    .error-icon { font-size: 52px; margin-bottom: 20px; opacity: 0.7; }
-    .error-title { font-size: 22px; font-weight: normal; margin-bottom: 10px; }
-    .error-msg { color: var(--muted); font-size: 14px; line-height: 1.7; }
+    .error-icon { font-size: 50px; margin-bottom: 18px; opacity: 0.7; }
+    .error-h { font-size: 21px; font-weight: normal; margin-bottom: 10px; }
+    .error-p { color: var(--muted); font-size: 14px; line-height: 1.7; max-width: 300px; text-align: center; }
 
     /* ── Welcome ── */
     .event-card {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 28px 24px;
-      margin-bottom: 32px;
-      background: var(--gold-glow);
-      position: relative;
-      overflow: hidden;
-    }
-    .event-card::before {
-      content: '';
-      position: absolute;
-      top: -40px; right: -40px;
-      width: 120px; height: 120px;
-      border-radius: 50%;
-      background: rgba(212,168,83,0.06);
+      padding: 26px 22px;
+      margin-bottom: 28px;
+      background: var(--card-bg);
+      text-align: center;
     }
     .event-type {
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: var(--gold);
-      text-transform: uppercase;
-      margin-bottom: 10px;
+      font-size: 11px; letter-spacing: 2.5px; color: var(--gold);
+      text-transform: uppercase; margin-bottom: 10px;
     }
     .event-title {
-      font-size: 26px;
-      font-weight: normal;
-      color: var(--cream);
-      line-height: 1.3;
-      margin-bottom: 12px;
+      font-size: 25px; font-weight: normal;
+      color: var(--cream); line-height: 1.3; margin-bottom: 12px;
     }
     .event-meta {
-      font-size: 13px;
-      color: var(--muted);
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
+      font-size: 13px; color: var(--muted);
+      display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
     }
-    .meta-dot { opacity: 0.4; }
 
-    .join-form { width: 100%; }
     .form-label {
-      display: block;
-      text-align: left;
-      font-size: 12px;
-      letter-spacing: 1.5px;
-      color: var(--muted);
-      text-transform: uppercase;
-      margin-bottom: 10px;
+      display: block; text-align: left; width: 100%;
+      font-size: 11px; letter-spacing: 1.5px; color: var(--muted);
+      text-transform: uppercase; margin-bottom: 9px;
     }
     .form-input {
       width: 100%;
@@ -216,292 +117,265 @@
       color: var(--cream);
       font-family: Georgia, serif;
       font-size: 16px;
-      padding: 16px 18px;
-      margin-bottom: 16px;
+      padding: 15px 17px;
+      margin-bottom: 14px;
       outline: none;
       transition: border-color 0.2s;
       -webkit-appearance: none;
     }
     .form-input:focus { border-color: var(--gold); }
-    .form-input::placeholder { color: var(--dim); }
+    .form-input::placeholder { color: var(--faint); }
 
-    .primary-btn {
+    .btn-primary {
       width: 100%;
       background: var(--gold);
       color: var(--bg);
-      border: none;
-      border-radius: 10px;
-      font-family: Georgia, serif;
-      font-size: 15px;
-      font-weight: bold;
-      letter-spacing: 0.5px;
-      padding: 18px;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      margin-bottom: 16px;
+      border: none; border-radius: 10px;
+      font-family: Georgia, serif; font-size: 15px; font-weight: bold;
+      letter-spacing: 0.3px; padding: 17px;
+      cursor: pointer; transition: opacity 0.15s; margin-bottom: 14px;
     }
-    .primary-btn:active { opacity: 0.82; }
-    .primary-btn:disabled { opacity: 0.5; cursor: default; }
+    .btn-primary:active { opacity: 0.82; }
+    .btn-primary:disabled { opacity: 0.45; cursor: default; }
 
-    .form-note {
-      font-size: 12px;
-      color: var(--dim);
-      line-height: 1.6;
+    .form-note { font-size: 12px; color: var(--muted); line-height: 1.65; text-align: center; }
+
+    /* ── Divider ── */
+    .divider {
+      width: 100%; border: none;
+      border-top: 1px solid var(--sep);
+      margin: 22px 0;
     }
 
-    /* ── Waiting (countdown) ── */
-    .film-strip {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 24px;
-    }
-    .film-hole {
-      width: 10px; height: 10px;
-      border: 2px solid rgba(212,168,83,0.3);
-      border-radius: 3px;
-    }
-
-    .joined-badge {
-      background: var(--gold-glow);
+    /* ── Waiting screen ── */
+    .you-in-badge {
+      background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 8px 20px;
-      font-size: 14px;
-      color: var(--cream);
-      margin-bottom: 28px;
+      padding: 9px 22px;
+      font-size: 15px; color: var(--cream);
+      margin-bottom: 26px; text-align: center;
     }
-    .joined-badge strong { color: var(--gold); }
+    .you-in-badge strong { color: var(--gold); }
 
-    .reveal-label {
-      font-size: 13px;
-      letter-spacing: 2px;
-      color: var(--muted);
-      text-transform: uppercase;
-      margin-bottom: 16px;
-      font-weight: normal;
+    .section-eyebrow {
+      font-size: 10px; letter-spacing: 2.5px;
+      color: var(--muted); text-transform: uppercase;
+      margin-bottom: 12px; text-align: center;
     }
 
     .countdown {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-      margin-bottom: 28px;
+      display: flex; align-items: flex-start; gap: 4px;
+      margin-bottom: 10px;
     }
-    .count-unit {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
+    .cd-unit { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .cd-num {
+      font-size: 56px; color: var(--gold); line-height: 1;
+      font-variant-numeric: tabular-nums; min-width: 72px; text-align: center;
     }
-    .count-num {
-      font-size: 52px;
-      color: var(--gold);
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-      min-width: 70px;
-      text-align: center;
-    }
-    .count-lbl {
-      font-size: 10px;
-      letter-spacing: 2px;
-      color: var(--dim);
-      text-transform: uppercase;
-    }
-    .count-sep {
-      font-size: 44px;
-      color: rgba(212,168,83,0.3);
-      line-height: 1.1;
-      padding-top: 2px;
-    }
+    .cd-lbl { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+    .cd-sep { font-size: 46px; color: rgba(212,168,83,0.35); line-height: 1.05; padding-top: 3px; }
 
-    .reveal-at {
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 36px;
+    .reveal-when {
+      font-size: 14px; color: var(--cream);
+      margin-bottom: 26px; text-align: center; line-height: 1.5;
     }
-    .reveal-at strong { color: var(--cream); }
+    .reveal-when span { color: var(--gold); }
 
-    .camera-cta {
+    /* ── Action cards ── */
+    .action-card {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 20px;
-      margin-top: auto;
-    }
-    .camera-cta-label {
-      font-size: 12px;
-      color: var(--dim);
       margin-bottom: 14px;
-      letter-spacing: 0.5px;
+      background: var(--card-bg);
     }
-    .secondary-btn {
-      display: block;
-      width: 100%;
-      border: 1px solid rgba(212,168,83,0.4);
+    .action-card-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 10px;
+    }
+    .action-icon {
+      font-size: 26px; flex-shrink: 0;
+    }
+    .action-title {
+      font-size: 16px; color: var(--cream); font-weight: normal;
+    }
+    .action-desc {
+      font-size: 13px; color: var(--muted);
+      line-height: 1.65; margin-bottom: 16px;
+    }
+
+    .btn-gold-outline {
+      display: block; width: 100%;
+      border: 1.5px solid var(--gold);
       border-radius: 10px;
-      color: var(--gold);
-      font-family: Georgia, serif;
-      font-size: 14px;
-      padding: 14px;
-      text-decoration: none;
-      cursor: pointer;
-      transition: background 0.15s;
+      color: var(--gold); background: transparent;
+      font-family: Georgia, serif; font-size: 14px;
+      padding: 13px; text-decoration: none; text-align: center;
+      cursor: pointer; transition: background 0.15s;
     }
-    .secondary-btn:active { background: var(--gold-glow); }
+    .btn-gold-outline:active { background: var(--card-bg); }
+
+    /* Gallery placeholder tiles */
+    .gallery-placeholder {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px; width: 100%;
+      margin-bottom: 14px; border-radius: 8px; overflow: hidden;
+    }
+    .gallery-tile {
+      aspect-ratio: 1;
+      background: rgba(212,168,83,0.06);
+      border: 1px solid rgba(212,168,83,0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; opacity: 0.5;
+    }
+
+    /* Save to home screen card */
+    .save-card {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+      background: var(--card-bg);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .save-card:active { opacity: 0.8; }
+    .save-card-icon { font-size: 28px; flex-shrink: 0; }
+    .save-card-info { flex: 1; text-align: left; }
+    .save-card-title { font-size: 15px; color: var(--cream); margin-bottom: 3px; }
+    .save-card-sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .save-card-arrow { color: var(--gold); font-size: 20px; flex-shrink: 0; }
 
     /* ── Gallery (reveal) ── */
-    .reveal-header {
-      margin-bottom: 24px;
-    }
-    .reveal-icon { font-size: 44px; margin-bottom: 12px; }
-    .reveal-title {
-      font-size: 24px;
-      font-weight: normal;
-      margin-bottom: 6px;
-    }
-    .reveal-sub {
-      font-size: 13px;
-      color: var(--muted);
-    }
+    .reveal-top { text-align: center; margin-bottom: 20px; }
+    .reveal-emoji { font-size: 42px; margin-bottom: 10px; }
+    .reveal-h { font-size: 23px; font-weight: normal; margin-bottom: 6px; }
+    .reveal-sub { font-size: 13px; color: var(--muted); }
 
-    .photo-count-badge {
-      font-size: 12px;
-      color: var(--gold);
-      letter-spacing: 1.5px;
-      margin-bottom: 16px;
-    }
+    .photo-count { font-size: 11px; letter-spacing: 2px; color: var(--gold); margin-bottom: 14px; text-align: center; }
 
     .photo-grid {
       width: 100%;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 3px;
-      margin-bottom: 20px;
+      gap: 3px; margin-bottom: 20px;
+      border-radius: 6px; overflow: hidden;
     }
     .photo-thumb {
-      width: 100%;
-      aspect-ratio: 1;
-      object-fit: cover;
-      display: block;
-      cursor: pointer;
-      transition: opacity 0.15s;
+      width: 100%; aspect-ratio: 1;
+      object-fit: cover; display: block;
+      cursor: pointer; transition: opacity 0.12s;
       background: #1a130a;
     }
-    .photo-thumb:active { opacity: 0.75; }
+    .photo-thumb:active { opacity: 0.72; }
 
-    .photo-empty {
-      color: var(--muted);
-      font-size: 14px;
-      padding: 40px 20px;
-      line-height: 1.7;
+    .no-photos {
+      text-align: center; padding: 36px 20px;
+      color: var(--muted); font-size: 14px; line-height: 1.8;
     }
-    .photo-empty.hidden { display: none; }
+    .no-photos.hidden { display: none; }
 
-    .refresh-btn {
+    .btn-outline-sm {
       background: none;
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--muted);
-      font-family: inherit;
-      font-size: 13px;
-      padding: 10px 20px;
-      cursor: pointer;
-      margin-top: 12px;
+      font-family: inherit; font-size: 13px;
+      padding: 10px 22px; cursor: pointer; margin-top: 12px;
     }
-    .refresh-btn:active { background: var(--gold-glow); }
 
     /* ── Lightbox ── */
     .lightbox {
-      position: fixed;
-      inset: 0;
-      z-index: 500;
+      position: fixed; inset: 0; z-index: 500;
       background: rgba(12,9,4,0.97);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
     }
     .lightbox.hidden { display: none; }
-
     .lb-close {
       position: absolute;
-      top: max(16px, env(safe-area-inset-top));
-      right: 16px;
-      background: rgba(255,255,255,0.08);
-      border: none;
-      color: var(--cream);
-      font-size: 24px;
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      top: max(16px, env(safe-area-inset-top)); right: 16px;
+      background: rgba(255,255,255,0.1); border: none;
+      color: var(--cream); font-size: 22px;
+      width: 40px; height: 40px; border-radius: 50%;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
       z-index: 10;
     }
-
-    .lb-img {
-      max-width: 100vw;
-      max-height: 80vh;
-      object-fit: contain;
-      display: block;
-    }
-
+    .lb-img { max-width: 100vw; max-height: 82vh; object-fit: contain; display: block; }
     .lb-meta {
       position: absolute;
-      bottom: max(20px, env(safe-area-inset-bottom));
-      left: 0; right: 0;
-      text-align: center;
-      font-size: 12px;
-      color: var(--muted);
+      bottom: max(18px, env(safe-area-inset-bottom));
+      left: 0; right: 0; text-align: center;
+      font-size: 12px; color: var(--muted);
     }
-
     .lb-nav {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(255,255,255,0.08);
-      border: none;
-      color: var(--cream);
-      font-size: 28px;
-      width: 44px; height: 44px;
-      border-radius: 50%;
+      position: absolute; top: 50%; transform: translateY(-50%);
+      background: rgba(255,255,255,0.1); border: none;
+      color: var(--cream); font-size: 26px;
+      width: 44px; height: 44px; border-radius: 50%;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .lb-prev { left: 10px; }
+    .lb-next { right: 10px; }
+
+    /* ── Install modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 600;
+      background: rgba(12,9,4,0.88);
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-sheet {
+      width: 100%; max-width: 440px;
+      background: #1c1408;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 20px 20px 0 0;
+      padding: 24px 24px max(24px, env(safe-area-inset-bottom));
+    }
+    .modal-handle {
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px; margin: 0 auto 20px;
+    }
+    .modal-title { font-size: 18px; font-weight: normal; margin-bottom: 6px; text-align: center; }
+    .modal-sub { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 24px; line-height: 1.6; }
+
+    .install-step {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--sep);
+    }
+    .install-step:last-of-type { border-bottom: none; }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--card-bg); border: 1px solid var(--border);
+      color: var(--gold); font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-text { font-size: 14px; color: var(--cream); line-height: 1.6; padding-top: 4px; }
+    .step-text em { color: var(--gold); font-style: normal; font-weight: bold; }
+
+    .modal-close {
+      width: 100%; margin-top: 20px;
+      background: none; border: 1px solid var(--sep);
+      border-radius: 10px; color: var(--muted);
+      font-family: inherit; font-size: 14px; padding: 13px;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
-    .lb-prev { left: 12px; }
-    .lb-next { right: 12px; }
 
-    /* ── Utility ── */
-    .mt-auto { margin-top: auto; }
-
-    @media (prefers-color-scheme: light) {
-      /* Force dark — this is a cinema app */
-      html { color-scheme: dark; }
-    }
+    @media (prefers-color-scheme: light) { html { color-scheme: dark; } }
   </style>
 </head>
 <body>
-
-<!-- Android PWA install banner -->
-<div id="installBanner" class="install-banner hidden">
-  <img src="/icon.svg" alt="Guestful Clicks" class="install-icon" />
-  <div class="install-info">
-    <strong>Add to Home Screen</strong>
-    <span>Save this event — revisit anytime.</span>
-  </div>
-  <button class="install-add-btn" id="installAddBtn">Add</button>
-  <button class="install-dismiss" id="installDismissBtn" aria-label="Dismiss">×</button>
-</div>
-
-<!-- iOS install banner -->
-<div id="iosBanner" class="ios-banner hidden">
-  <span>📲</span>
-  <span class="ios-text">Tap <strong>Share</strong> then <strong>Add to Home Screen</strong> to save this event shortcut.</span>
-  <button class="install-dismiss" id="iosDismissBtn" aria-label="Dismiss">×</button>
-</div>
 
 <div id="app">
   <div class="header">
@@ -511,7 +385,7 @@
     </div>
   </div>
 
-  <!-- Loading -->
+  <!-- ── Loading ── -->
   <div id="screen-loading" class="screen">
     <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
       <div class="spinner"></div>
@@ -519,107 +393,142 @@
     </div>
   </div>
 
-  <!-- Error -->
+  <!-- ── Error ── -->
   <div id="screen-error" class="screen hidden">
     <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
       <div class="error-icon">🎞</div>
-      <h1 class="error-title">Event not found</h1>
-      <p class="error-msg" id="errorMsg">This link may have expired or the event code is invalid.</p>
+      <h1 class="error-h">Event not found</h1>
+      <p class="error-p" id="errorMsg">This link may have expired or the event code is invalid.</p>
     </div>
   </div>
 
-  <!-- Welcome / Join form -->
+  <!-- ── Welcome / Join ── -->
   <div id="screen-welcome" class="screen hidden">
     <div class="event-card">
       <div class="event-type" id="eventType">EVENT</div>
-      <h1 class="event-title" id="eventTitle">Loading…</h1>
+      <h1 class="event-title" id="eventTitle">—</h1>
       <div class="event-meta">
         <span id="eventDate"></span>
-        <span class="meta-dot">·</span>
+        <span style="opacity:.4">·</span>
         <span id="guestCount">…</span>
       </div>
     </div>
 
-    <div class="join-form">
-      <label class="form-label" for="nameInput">Your name</label>
-      <input
-        type="text"
-        id="nameInput"
-        class="form-input"
-        placeholder="What should guests call you?"
-        maxlength="50"
-        autocomplete="name"
-        autocorrect="off"
-        spellcheck="false"
-      />
-      <button class="primary-btn" id="joinBtn">
-        <span id="joinBtnText">Join the Film →</span>
-      </button>
-      <p class="form-note">No account needed. Your name appears alongside your photos in the gallery.</p>
-    </div>
+    <label class="form-label" for="nameInput">Your name</label>
+    <input
+      type="text" id="nameInput" class="form-input"
+      placeholder="What should guests call you?"
+      maxlength="50" autocomplete="name" autocorrect="off" spellcheck="false"
+    />
+    <button class="btn-primary" id="joinBtn">
+      <span id="joinBtnText">Join the Film →</span>
+    </button>
+    <p class="form-note">No account needed. Your name appears on your photos in the gallery.</p>
   </div>
 
-  <!-- Waiting / Countdown -->
+  <!-- ── Waiting / Countdown ── -->
   <div id="screen-waiting" class="screen hidden">
-    <div class="film-strip">
-      <div class="film-hole"></div>
-      <div class="film-hole"></div>
-      <div class="film-hole"></div>
-      <div class="film-hole"></div>
-      <div class="film-hole"></div>
-    </div>
 
-    <div class="joined-badge">
-      <strong id="joinedName"></strong>, you're in the film! 🎬
-    </div>
+    <!-- Who joined -->
+    <div class="you-in-badge">🎬 <strong id="joinedName"></strong>, you're in the film!</div>
 
-    <p class="reveal-label">Reveal in</p>
-
+    <!-- Countdown -->
+    <p class="section-eyebrow">Gallery opens in</p>
     <div class="countdown">
-      <div class="count-unit">
-        <span class="count-num" id="cd-h">00</span>
-        <span class="count-lbl">hrs</span>
+      <div class="cd-unit">
+        <span class="cd-num" id="cd-h">00</span>
+        <span class="cd-lbl">hrs</span>
       </div>
-      <div class="count-sep">:</div>
-      <div class="count-unit">
-        <span class="count-num" id="cd-m">00</span>
-        <span class="count-lbl">min</span>
+      <div class="cd-sep">:</div>
+      <div class="cd-unit">
+        <span class="cd-num" id="cd-m">00</span>
+        <span class="cd-lbl">min</span>
       </div>
-      <div class="count-sep">:</div>
-      <div class="count-unit">
-        <span class="count-num" id="cd-s">00</span>
-        <span class="count-lbl">sec</span>
+      <div class="cd-sep">:</div>
+      <div class="cd-unit">
+        <span class="cd-num" id="cd-s">00</span>
+        <span class="cd-lbl">sec</span>
       </div>
     </div>
+    <p class="reveal-when">Reveal on <span id="revealAtText">—</span></p>
 
-    <p class="reveal-at">Gallery unlocks on <strong id="revealAtText"></strong></p>
+    <hr class="divider" />
 
-    <div class="mt-auto camera-cta">
-      <p class="camera-cta-label">Want to contribute photos to the film?</p>
-      <a href="#" id="getAppLink" class="secondary-btn">Get the Guestful Clicks App →</a>
+    <!-- Contribute photos -->
+    <div class="action-card">
+      <div class="action-card-header">
+        <div class="action-icon">📷</div>
+        <div class="action-title">Contribute Photos</div>
+      </div>
+      <p class="action-desc">
+        Download the Guestful Clicks app to shoot with your camera. Your photos go straight into the shared gallery and appear here at the reveal.
+      </p>
+      <a href="#" id="getAppLink" class="btn-gold-outline">Download the App — It's Free →</a>
     </div>
+
+    <!-- What happens at reveal -->
+    <div class="action-card">
+      <div class="action-card-header">
+        <div class="action-icon">🖼</div>
+        <div class="action-title">Your Gallery Will Appear Here</div>
+      </div>
+      <p class="action-desc">
+        When the countdown ends, every guest's photos unlock in a gallery right on this page. Tap any photo to view full screen. No app needed to see the reveal.
+      </p>
+      <div class="gallery-placeholder">
+        <div class="gallery-tile">🔒</div>
+        <div class="gallery-tile">🔒</div>
+        <div class="gallery-tile">🔒</div>
+        <div class="gallery-tile">🔒</div>
+        <div class="gallery-tile">🔒</div>
+        <div class="gallery-tile">🔒</div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);text-align:center;">Gallery unlocks automatically — no refresh needed.</p>
+    </div>
+
+    <!-- Save to home screen -->
+    <div class="save-card" id="saveToHomeCard" onclick="promptInstall()">
+      <div class="save-card-icon">📲</div>
+      <div class="save-card-info">
+        <div class="save-card-title">Save to Home Screen</div>
+        <div class="save-card-sub">Open your gallery instantly from your home screen — no link needed.</div>
+      </div>
+      <div class="save-card-arrow">›</div>
+    </div>
+
   </div>
 
-  <!-- Gallery / Reveal -->
+  <!-- ── Gallery / Reveal ── -->
   <div id="screen-reveal" class="screen hidden">
-    <div class="reveal-header">
-      <div class="reveal-icon">🎞</div>
-      <h1 class="reveal-title" id="revealTitle">The Film is Ready</h1>
-      <p class="reveal-sub" id="revealSub"></p>
+
+    <div class="reveal-top">
+      <div class="reveal-emoji">🎞</div>
+      <h1 class="reveal-h" id="revealTitle">The Film is Ready</h1>
+      <p class="reveal-sub" id="revealSub">Tap any photo to view full screen.</p>
     </div>
 
-    <p class="photo-count-badge" id="photoCountBadge"></p>
-
+    <p class="photo-count" id="photoCount"></p>
     <div id="photoGrid" class="photo-grid"></div>
 
-    <div id="photoEmpty" class="photo-empty hidden">
-      <p>No photos yet — check back soon!</p>
-      <button class="refresh-btn" onclick="loadGallery()">Refresh →</button>
+    <div id="noPhotos" class="no-photos hidden">
+      <p>No photos yet — check back soon.</p>
+      <button class="btn-outline-sm" onclick="loadGallery()">Refresh</button>
     </div>
+
+    <!-- Save to home screen on gallery too -->
+    <div class="save-card" id="saveToHomeCard2" onclick="promptInstall()" style="margin-top:8px;">
+      <div class="save-card-icon">📲</div>
+      <div class="save-card-info">
+        <div class="save-card-title">Save to Home Screen</div>
+        <div class="save-card-sub">Revisit this gallery anytime from your home screen.</div>
+      </div>
+      <div class="save-card-arrow">›</div>
+    </div>
+
   </div>
 </div>
 
-<!-- Lightbox -->
+<!-- ── Lightbox ── -->
 <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
   <button class="lb-close" onclick="closeLightbox()" aria-label="Close">×</button>
   <img id="lbImg" src="" alt="Event photo" class="lb-img" />
@@ -628,101 +537,113 @@
   <button class="lb-nav lb-next" onclick="lbNav(1)" aria-label="Next">›</button>
 </div>
 
+<!-- ── Install instructions modal ── -->
+<div id="installModal" class="modal-overlay hidden" onclick="closeInstallModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h2 class="modal-title" id="installModalTitle">Add to Home Screen</h2>
+    <p class="modal-sub" id="installModalSub">Follow these steps in your browser:</p>
+    <div id="installSteps"></div>
+    <button class="modal-close" onclick="closeInstallModal()">Done</button>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 (function () {
   'use strict';
 
-  /* ── Supabase ── */
   var SUPABASE_URL = 'https://aerysfmswjxqrebzmbjy.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_WM3UpBDZgiCxVVMm-hIpxQ_scat4Dsg';
   var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  /* ── State ── */
-  var code = new URLSearchParams(location.search).get('code') || '';
-  var event = null;
-  var participant = null;
-  var photos = [];
-  var lbIdx = 0;
-  var countdownTimer = null;
+  var code         = new URLSearchParams(location.search).get('code') || '';
+  var event        = null;
+  var participant  = null;
+  var photos       = [];
+  var lbIdx        = 0;
+  var cdTimer      = null;
   var deferredPrompt = null;
 
-  /* ── PWA install prompt (Android Chrome) ── */
+  /* ── Platform helpers ── */
+  function isIOS()        { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
+  function isAndroid()    { return /android/i.test(navigator.userAgent); }
+  function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone; }
+
+  /* ── Capture Android install prompt ── */
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     deferredPrompt = e;
-    if (!isStandalone() && !localStorage.getItem('gc_install_dismissed')) {
-      show('installBanner');
+  });
+
+  /* ── Install / Save to Home Screen ── */
+  window.promptInstall = function () {
+    if (isStandalone()) {
+      showInstallModal('Already Saved!', 'You\'ve already added this to your home screen. Just open it from there anytime.', []);
+      return;
     }
-  });
 
-  document.getElementById('installAddBtn').addEventListener('click', function () {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(function (result) {
-      deferredPrompt = null;
-      hide('installBanner');
-      if (result.outcome === 'accepted') {
-        localStorage.setItem('gc_install_dismissed', '1');
-      }
-    });
-  });
-
-  document.getElementById('installDismissBtn').addEventListener('click', function () {
-    hide('installBanner');
-    localStorage.setItem('gc_install_dismissed', '1');
-  });
-
-  document.getElementById('iosDismissBtn').addEventListener('click', function () {
-    hide('iosBanner');
-    localStorage.setItem('gc_install_dismissed', '1');
-  });
-
-  /* ── Join button ── */
-  document.getElementById('joinBtn').addEventListener('click', joinEvent);
-  document.getElementById('nameInput').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') joinEvent();
-  });
-
-  /* ── Keyboard lightbox nav ── */
-  document.addEventListener('keydown', function (e) {
-    var lb = document.getElementById('lightbox');
-    if (!lb.classList.contains('hidden')) {
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowLeft')  lbNav(-1);
-      if (e.key === 'ArrowRight') lbNav(1);
+    if (deferredPrompt) {
+      /* Android Chrome — native PWA install prompt */
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+      return;
     }
-  });
 
-  /* ── Touch swipe in lightbox ── */
-  (function () {
-    var startX = 0;
-    var lb = document.getElementById('lightbox');
-    lb.addEventListener('touchstart', function (e) { startX = e.touches[0].clientX; }, { passive: true });
-    lb.addEventListener('touchend', function (e) {
-      var dx = e.changedTouches[0].clientX - startX;
-      if (Math.abs(dx) > 50) lbNav(dx < 0 ? 1 : -1);
-    });
-  })();
+    if (isIOS()) {
+      showInstallModal(
+        'Save to Home Screen',
+        'Open this page\'s gallery anytime from your iPhone home screen:',
+        [
+          'Tap the <em>Share</em> button (the box with an arrow ↑) at the bottom of Safari.',
+          'Scroll down and tap <em>Add to Home Screen</em>.',
+          'Tap <em>Add</em> in the top right corner.'
+        ]
+      );
+      return;
+    }
 
-  /* ── Helpers ── */
-  function isStandalone() {
-    return window.matchMedia('(display-mode: standalone)').matches ||
-           window.navigator.standalone === true;
+    /* Android Chrome but prompt didn't fire (already installed, or first visit) */
+    showInstallModal(
+      'Save to Home Screen',
+      'Add this gallery to your Android home screen:',
+      [
+        'Tap the <em>⋮ menu</em> (three dots) at the top right of Chrome.',
+        'Tap <em>Add to Home screen</em>.',
+        'Tap <em>Add</em> to confirm.'
+      ]
+    );
+  };
+
+  function showInstallModal(title, sub, steps) {
+    document.getElementById('installModalTitle').textContent = title;
+    document.getElementById('installModalSub').textContent  = sub;
+    var container = document.getElementById('installSteps');
+    container.innerHTML = steps.map(function (text, i) {
+      return '<div class="install-step">' +
+        '<div class="step-num">' + (i + 1) + '</div>' +
+        '<div class="step-text">' + text + '</div>' +
+        '</div>';
+    }).join('');
+    document.getElementById('installModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
   }
 
-  function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  }
+  window.closeInstallModal = function (e) {
+    if (e && e.target !== document.getElementById('installModal')) return;
+    document.getElementById('installModal').classList.add('hidden');
+    document.body.style.overflow = '';
+  };
 
-  function show(id) { document.getElementById(id).classList.remove('hidden'); }
-  function hide(id) { document.getElementById(id).classList.add('hidden'); }
+  /* ── DOM helpers ── */
+  function show(id)   { document.getElementById(id).classList.remove('hidden'); }
+  function hide(id)   { document.getElementById(id).classList.add('hidden'); }
 
   function showScreen(name) {
     ['loading','error','welcome','waiting','reveal'].forEach(function (s) {
       document.getElementById('screen-' + s).classList.add('hidden');
     });
-    document.getElementById('screen-' + name).classList.remove('hidden');
+    show('screen-' + name);
   }
 
   function showError(msg) {
@@ -730,116 +651,79 @@
     showScreen('error');
   }
 
-  function formatDate(dateStr) {
-    if (!dateStr) return '';
-    var parts = dateStr.split('-').map(Number);
-    var d = new Date(parts[0], parts[1] - 1, parts[2]);
-    return d.toLocaleDateString('en-IN', {
+  /* ── Format helpers ── */
+  function formatDate(ds) {
+    if (!ds) return '';
+    var p = ds.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('en-IN', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
   }
 
-  function formatRevealTime(isoStr) {
-    if (!isoStr) return '';
-    var d = new Date(isoStr);
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var h = d.getHours(), min = d.getMinutes();
-    var h12 = h % 12 === 0 ? 12 : h % 12;
-    var ampm = h >= 12 ? 'PM' : 'AM';
-    return d.getDate() + ' ' + months[d.getMonth()] + ', ' + h12 + ':' + String(min).padStart(2,'0') + ' ' + ampm;
-  }
-
-  function maybeShowInstallBanner() {
-    if (isStandalone() || localStorage.getItem('gc_install_dismissed')) return;
-    if (isIOS()) {
-      show('iosBanner');
-    }
-    /* Android: shown when beforeinstallprompt fires */
+  function formatDT(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var h = d.getHours(), m = d.getMinutes();
+    var h12 = h % 12 || 12;
+    return d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear() +
+           ', ' + h12 + ':' + String(m).padStart(2,'0') + ' ' + (h >= 12 ? 'PM' : 'AM');
   }
 
   /* ── Init ── */
   async function init() {
     showScreen('loading');
 
-    if (!code) {
-      showError('No event code in this link. Please scan the QR code again.');
-      return;
-    }
+    if (!code) { showError('No event code found. Please scan the QR code again.'); return; }
 
-    /* Restore existing session for this code */
+    try { var s = localStorage.getItem('gc_p_' + code); if (s) participant = JSON.parse(s); } catch(_) {}
+
     try {
-      var stored = localStorage.getItem('gc_p_' + code);
-      if (stored) participant = JSON.parse(stored);
-    } catch (_) {}
+      var r = await sb.from('events')
+        .select('id, title, type, event_date, reveal_time, status')
+        .eq('share_code', code).single();
 
-    /* Fetch event */
-    try {
-      var result = await sb
-        .from('events')
-        .select('id, title, type, event_date, reveal_time, status, aesthetic')
-        .eq('share_code', code)
-        .single();
+      if (r.error || !r.data) { showError('Event not found or link has expired.'); return; }
+      event = r.data;
 
-      if (result.error || !result.data) {
-        showError('Event not found. This link may have expired or the code is invalid.');
-        return;
-      }
+      if (participant && participant.eventId === event.id) { checkReveal(); return; }
 
-      event = result.data;
-
-      /* Restore session → skip to countdown/gallery */
-      if (participant && participant.eventId === event.id) {
-        checkReveal();
-        return;
-      }
-
-      showWelcome();
-
-    } catch (err) {
-      showError('Unable to connect. Please check your internet connection and try again.');
+      await buildWelcome();
+    } catch(_) {
+      showError('Unable to connect. Check your internet and try again.');
     }
   }
 
-  /* ── Welcome screen ── */
-  async function showWelcome() {
-    var typeLabel = {
-      wedding: '💍 Wedding',
-      birthday: '🎂 Birthday',
-      corporate: '🏢 Corporate',
-      family: '👨‍👩‍👧 Family',
-      reunion: '🤝 Reunion',
-      graduation: '🎓 Graduation',
-    }[event.type] || ('🎉 ' + (event.type ? event.type.charAt(0).toUpperCase() + event.type.slice(1) : 'Event'));
-
-    document.getElementById('eventType').textContent = typeLabel;
+  /* ── Welcome ── */
+  async function buildWelcome() {
+    var labels = {
+      wedding:'💍 Wedding', birthday:'🎂 Birthday', corporate:'🏢 Corporate',
+      family:'👨‍👩‍👧 Family', reunion:'🤝 Reunion', graduation:'🎓 Graduation'
+    };
+    document.getElementById('eventType').textContent =
+      labels[event.type] || '🎉 ' + (event.type ? event.type[0].toUpperCase() + event.type.slice(1) : 'Event');
     document.getElementById('eventTitle').textContent = event.title;
-    document.getElementById('eventDate').textContent = formatDate(event.event_date);
-    document.getElementById('guestCount').textContent = 'loading…';
+    document.getElementById('eventDate').textContent  = formatDate(event.event_date);
+    document.getElementById('guestCount').textContent = '…';
 
     showScreen('welcome');
-    maybeShowInstallBanner();
 
-    /* Fetch guest count async */
-    var countResult = await sb
-      .from('participants')
-      .select('id', { count: 'exact', head: true })
-      .eq('event_id', event.id);
-
-    var count = countResult.count || 0;
+    var cr = await sb.from('participants').select('id', { count:'exact', head:true }).eq('event_id', event.id);
+    var n  = cr.count || 0;
     document.getElementById('guestCount').textContent =
-      count === 0 ? 'Be the first to join!' :
-      count === 1 ? '1 guest' : count + ' guests';
+      n === 0 ? 'Be the first to join!' : n === 1 ? '1 guest' : n + ' guests';
   }
 
   /* ── Join ── */
+  document.getElementById('joinBtn').addEventListener('click', joinEvent);
+  document.getElementById('nameInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') joinEvent(); });
+
   async function joinEvent() {
     var name = document.getElementById('nameInput').value.trim();
     if (!name) {
       document.getElementById('nameInput').focus();
-      document.getElementById('nameInput').style.borderColor = 'rgba(212,168,83,0.6)';
-      setTimeout(function () {
-        document.getElementById('nameInput').style.borderColor = '';
-      }, 1500);
+      document.getElementById('nameInput').style.borderColor = 'rgba(212,168,83,0.7)';
+      setTimeout(function() { document.getElementById('nameInput').style.borderColor = ''; }, 1500);
       return;
     }
 
@@ -848,85 +732,77 @@
     document.getElementById('joinBtnText').textContent = 'Joining…';
 
     try {
-      var insertResult = await sb
-        .from('participants')
+      var ins = await sb.from('participants')
         .insert({ event_id: event.id, name: name, role: 'guest' })
-        .select('id, name')
-        .single();
+        .select('id, name').single();
 
-      if (insertResult.error) {
-        /* RLS or schema issue — create a local-only session so they can still view */
-        participant = { id: 'web-' + Date.now(), name: name, eventId: event.id, local: true };
-      } else {
-        participant = { id: insertResult.data.id, name: insertResult.data.name, eventId: event.id };
-      }
-    } catch (_) {
+      participant = ins.error
+        ? { id: 'web-' + Date.now(), name: name, eventId: event.id, local: true }
+        : { id: ins.data.id, name: ins.data.name, eventId: event.id };
+    } catch(_) {
       participant = { id: 'web-' + Date.now(), name: name, eventId: event.id, local: true };
     }
 
-    try {
-      localStorage.setItem('gc_p_' + code, JSON.stringify(participant));
-    } catch (_) {}
+    try { localStorage.setItem('gc_p_' + code, JSON.stringify(participant)); } catch(_) {}
 
     btn.disabled = false;
     document.getElementById('joinBtnText').textContent = 'Join the Film →';
-
     checkReveal();
   }
 
-  /* ── Decide: countdown or gallery ── */
+  /* ── Reveal check ── */
   function checkReveal() {
-    var now = new Date();
     var revealed = event.status === 'revealed';
     var revealAt = event.reveal_time ? new Date(event.reveal_time) : null;
-    var timeReached = revealAt && revealAt <= now;
-
-    if (revealed || timeReached) {
+    if (revealed || (revealAt && revealAt <= new Date())) {
       loadGallery();
     } else {
       showWaiting(revealAt);
     }
   }
 
-  /* ── Waiting / Countdown ── */
+  /* ── Waiting ── */
   function showWaiting(revealAt) {
     document.getElementById('joinedName').textContent = participant ? participant.name : 'Guest';
+    document.getElementById('revealAtText').textContent = revealAt ? formatDT(revealAt.toISOString()) : 'the host\'s reveal';
 
-    var isAndroid = /android/i.test(navigator.userAgent);
-    document.getElementById('getAppLink').href = isAndroid
+    document.getElementById('getAppLink').href = isAndroid()
       ? 'https://play.google.com/store/apps/details?id=com.guestfulclicks.app'
       : 'https://apps.apple.com/app/guestful-clicks/id0000000000';
 
-    document.getElementById('revealAtText').textContent = revealAt ? formatRevealTime(revealAt.toISOString()) : 'the host\'s reveal';
-
     showScreen('waiting');
 
-    if (countdownTimer) clearInterval(countdownTimer);
-
-    function tick() {
-      var diff = revealAt - new Date();
-      if (diff <= 0) {
-        clearInterval(countdownTimer);
-        loadGallery();
-        return;
-      }
-      var h = Math.floor(diff / 3600000);
-      var m = Math.floor((diff % 3600000) / 60000);
-      var s = Math.floor((diff % 60000) / 1000);
-      document.getElementById('cd-h').textContent = String(h).padStart(2, '0');
-      document.getElementById('cd-m').textContent = String(m).padStart(2, '0');
-      document.getElementById('cd-s').textContent = String(s).padStart(2, '0');
-    }
+    if (cdTimer) clearInterval(cdTimer);
 
     if (revealAt) {
-      tick();
-      countdownTimer = setInterval(tick, 1000);
+      (function tick() {
+        var diff = revealAt - new Date();
+        if (diff <= 0) { clearInterval(cdTimer); loadGallery(); return; }
+        var h = Math.floor(diff / 3600000);
+        var m = Math.floor((diff % 3600000) / 60000);
+        var s = Math.floor((diff % 60000) / 1000);
+        document.getElementById('cd-h').textContent = String(h).padStart(2,'0');
+        document.getElementById('cd-m').textContent = String(m).padStart(2,'0');
+        document.getElementById('cd-s').textContent = String(s).padStart(2,'0');
+      })();
+      cdTimer = setInterval(function() {
+        var diff = revealAt - new Date();
+        if (diff <= 0) { clearInterval(cdTimer); loadGallery(); return; }
+        var h = Math.floor(diff / 3600000);
+        var m = Math.floor((diff % 3600000) / 60000);
+        var s = Math.floor((diff % 60000) / 1000);
+        document.getElementById('cd-h').textContent = String(h).padStart(2,'0');
+        document.getElementById('cd-m').textContent = String(m).padStart(2,'0');
+        document.getElementById('cd-s').textContent = String(s).padStart(2,'0');
+      }, 1000);
     } else {
-      /* No reveal time — poll every 30s for status change */
-      countdownTimer = setInterval(async function () {
-        var r = await sb.from('events').select('status, reveal_time').eq('id', event.id).single();
+      document.getElementById('cd-h').textContent = '--';
+      document.getElementById('cd-m').textContent = '--';
+      document.getElementById('cd-s').textContent = '--';
+      cdTimer = setInterval(async function() {
+        var r = await sb.from('events').select('status,reveal_time').eq('id', event.id).single();
         if (r.data && (r.data.status === 'revealed' || (r.data.reveal_time && new Date(r.data.reveal_time) <= new Date()))) {
-          clearInterval(countdownTimer);
+          clearInterval(cdTimer);
           event.status = r.data.status;
           loadGallery();
         }
@@ -935,86 +811,80 @@
   }
 
   /* ── Gallery ── */
-  window.loadGallery = async function () {
+  window.loadGallery = async function() {
     showScreen('reveal');
-
     document.getElementById('revealTitle').textContent = event ? event.title : 'The Film';
-    document.getElementById('revealSub').textContent = 'Every angle. Every guest. One gallery.';
+    document.getElementById('revealSub').textContent   = 'Every angle. Every guest. One gallery.';
 
     var grid = document.getElementById('photoGrid');
-    grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px;grid-column:1/-1">Loading photos…</div>';
-    hide('photoEmpty');
+    grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:24px 0;grid-column:1/-1;text-align:center;">Loading photos…</div>';
+    hide('noPhotos');
 
     try {
-      var result = await sb
-        .from('photos')
+      var r = await sb.from('photos')
         .select('id, url, created_at')
         .eq('event_id', event.id)
         .eq('is_deleted', false)
         .eq('is_revealed', true)
         .order('created_at', { ascending: false });
 
-      if (result.error) throw result.error;
-
-      photos = result.data || [];
-
+      if (r.error) throw r.error;
+      photos = r.data || [];
       grid.innerHTML = '';
 
-      if (!photos.length) {
-        show('photoEmpty');
-        document.getElementById('photoCountBadge').textContent = '';
-        return;
-      }
+      if (!photos.length) { show('noPhotos'); document.getElementById('photoCount').textContent = ''; return; }
 
-      document.getElementById('photoCountBadge').textContent =
+      document.getElementById('photoCount').textContent =
         photos.length + ' PHOTO' + (photos.length === 1 ? '' : 'S');
 
-      photos.forEach(function (photo, idx) {
+      photos.forEach(function(photo, idx) {
         var img = document.createElement('img');
-        img.src = photo.url;
-        img.className = 'photo-thumb';
-        img.loading = 'lazy';
-        img.alt = 'Event photo ' + (idx + 1);
-        img.addEventListener('click', function () { openLightbox(idx); });
+        img.src = photo.url; img.className = 'photo-thumb';
+        img.loading = 'lazy'; img.alt = 'Photo ' + (idx + 1);
+        img.addEventListener('click', function() { openLightbox(idx); });
         grid.appendChild(img);
       });
-
-    } catch (err) {
+    } catch(_) {
       grid.innerHTML = '';
-      show('photoEmpty');
+      show('noPhotos');
     }
   };
 
   /* ── Lightbox ── */
-  window.openLightbox = function (idx) {
-    lbIdx = idx;
-    updateLightbox();
-    show('lightbox');
-    document.body.style.overflow = 'hidden';
+  window.openLightbox = function(idx) {
+    lbIdx = idx; updateLB();
+    show('lightbox'); document.body.style.overflow = 'hidden';
   };
-
-  window.closeLightbox = function () {
-    hide('lightbox');
-    document.body.style.overflow = '';
+  window.closeLightbox = function() {
+    hide('lightbox'); document.body.style.overflow = '';
   };
-
-  window.lbNav = function (dir) {
-    lbIdx = (lbIdx + dir + photos.length) % photos.length;
-    updateLightbox();
+  window.lbNav = function(dir) {
+    lbIdx = (lbIdx + dir + photos.length) % photos.length; updateLB();
   };
-
-  function updateLightbox() {
-    var photo = photos[lbIdx];
-    document.getElementById('lbImg').src = photo.url;
+  function updateLB() {
+    document.getElementById('lbImg').src = photos[lbIdx].url;
     document.getElementById('lbMeta').textContent = (lbIdx + 1) + ' / ' + photos.length;
   }
 
+  (function() {
+    var sx = 0;
+    var lb = document.getElementById('lightbox');
+    lb.addEventListener('touchstart', function(e) { sx = e.touches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend',   function(e) { var dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) lbNav(dx < 0 ? 1 : -1); });
+  })();
+
+  document.addEventListener('keydown', function(e) {
+    if (document.getElementById('lightbox').classList.contains('hidden')) return;
+    if (e.key === 'Escape')      closeLightbox();
+    if (e.key === 'ArrowLeft')   lbNav(-1);
+    if (e.key === 'ArrowRight')  lbNav(1);
+  });
+
   /* ── Service worker ── */
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(function () {});
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
   }
 
-  /* ── Start ── */
   init();
 })();
 </script>
