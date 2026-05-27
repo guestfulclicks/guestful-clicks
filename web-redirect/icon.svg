@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="40" fill="#0C0904"/>
+  <rect x="20" y="60" width="152" height="72" rx="12" fill="none" stroke="#D4A853" stroke-width="3"/>
+  <!-- Sprocket holes left -->
+  <rect x="28" y="72" width="10" height="14" rx="3" fill="#D4A853" opacity="0.5"/>
+  <rect x="28" y="92" width="10" height="14" rx="3" fill="#D4A853" opacity="0.5"/>
+  <!-- Sprocket holes right -->
+  <rect x="154" y="72" width="10" height="14" rx="3" fill="#D4A853" opacity="0.5"/>
+  <rect x="154" y="92" width="10" height="14" rx="3" fill="#D4A853" opacity="0.5"/>
+  <!-- Lens -->
+  <circle cx="96" cy="96" r="26" fill="none" stroke="#D4A853" stroke-width="3"/>
+  <circle cx="96" cy="96" r="18" fill="#D4A853" opacity="0.15"/>
+  <!-- Top bar -->
+  <rect x="20" y="60" width="152" height="14" rx="0" fill="#0C0904" opacity="0.6"/>
+  <rect x="20" y="60" width="152" height="14" rx="12" fill="none" stroke="#D4A853" stroke-width="3"/>
+  <!-- Shutter dot -->
+  <circle cx="148" cy="67" r="5" fill="#D4A853"/>
+</svg>
