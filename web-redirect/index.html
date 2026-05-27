@@ -464,12 +464,12 @@
         <div class="ac-icon">🖼</div>
         <div class="ac-title">Gallery Unlocks Right Here</div>
       </div>
-      <p class="ac-desc">When the countdown ends, every guest's photos appear on this page. No app needed to see the reveal.</p>
+      <p class="ac-desc">When the countdown ends, a <strong style="color:var(--gold);">Reveal button</strong> appears — tap it whenever you're ready and watch every photo unfold. No app needed.</p>
       <div class="gal-placeholder">
         <div class="gal-tile">🔒</div><div class="gal-tile">🔒</div><div class="gal-tile">🔒</div>
         <div class="gal-tile">🔒</div><div class="gal-tile">🔒</div><div class="gal-tile">🔒</div>
       </div>
-      <p style="font-size:12px;color:var(--muted);text-align:center;">Unlocks automatically — no refresh needed.</p>
+      <p style="font-size:12px;color:var(--muted);text-align:center;">You choose when to reveal — nobody misses it.</p>
     </div>
 
   </div>
@@ -613,11 +613,12 @@
     try { var k = lsHidKey(); if (k) localStorage.setItem(k, JSON.stringify([...hidSet])); } catch (_) {}
   }
 
-  /* ── Android PWA install prompt ── */
-  window.addEventListener('beforeinstallprompt', function (e) {
-    e.preventDefault();
-    deferredPrompt = e;
-  });
+  /* ── Suppress the native PWA install prompt entirely ── */
+  /* We never call deferredPrompt.prompt() — it installs using the manifest's
+     start_url ("/") which loses the ?code= query parameter, resulting in a
+     shortcut that opens to "no events". Manual Add to Home Screen from the
+     Chrome/Safari menu saves the CURRENT URL including ?code=. */
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); });
 
   function refreshHomeBtn() {
     if (isStandalone()) {
@@ -628,27 +629,31 @@
 
   window.promptInstall = function () {
     if (isStandalone()) {
-      showInstallModal('Already Added!', "You've already added this to your home screen — open it from there anytime.", []);
-      return;
-    }
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+      showInstallModal('Already Added!', "You've already saved this to your home screen — open it from there anytime.", []);
       return;
     }
     if (isIOS()) {
-      showInstallModal('Save to Home Screen', 'Open your gallery anytime from your iPhone home screen:', [
-        'Tap the <em>Share</em> button (box with arrow ↑) at the bottom of Safari.',
-        'Scroll and tap <em>Add to Home Screen</em>.',
-        'Tap <em>Add</em> in the top right.'
-      ]);
+      showInstallModal(
+        'Save to Home Screen',
+        'This saves a shortcut that opens directly to your event gallery:',
+        [
+          'Tap the <em>Share</em> button (box with arrow ↑) at the bottom of Safari.',
+          'Scroll down and tap <em>Add to Home Screen</em>.',
+          'Tap <em>Add</em> in the top-right corner — done!'
+        ]
+      );
       return;
     }
-    showInstallModal('Add to Home Screen', 'Save this gallery to your Android home screen:', [
-      'Tap the <em>⋮ menu</em> (three dots) at the top right of Chrome.',
-      'Tap <em>Add to Home screen</em>.',
-      'Tap <em>Add</em> to confirm.'
-    ]);
+    /* Android Chrome / any other browser — manual shortcut saves current URL with ?code= */
+    showInstallModal(
+      'Add to Home Screen',
+      'This saves a shortcut that opens directly to your event gallery:',
+      [
+        'Tap the <em>⋮ menu</em> (three dots) at the top-right of Chrome.',
+        'Tap <em>Add to Home screen</em>.',
+        'Tap <em>Add</em> to confirm — done!'
+      ]
+    );
   };
 
   function showInstallModal(title, sub, steps) {
@@ -704,7 +709,19 @@
     showScreen('loading');
     refreshHomeBtn();
 
-    if (!code) { showError('No event code. Please scan the QR code again.'); return; }
+    /* If opened from a home-screen shortcut with no ?code= (the manifest start_url
+       is "/"), recover the last used code from localStorage so the shortcut works. */
+    if (!code) {
+      try {
+        var saved = localStorage.getItem('gc_last_code');
+        if (saved) { location.replace('?code=' + saved); return; }
+      } catch (_) {}
+      showError('No event code. Please scan the QR code again.');
+      return;
+    }
+
+    /* Persist this code so the home-screen shortcut can recover it */
+    try { localStorage.setItem('gc_last_code', code); } catch (_) {}
 
     try { var s = localStorage.getItem('gc_p_' + code); if (s) participant = JSON.parse(s); } catch (_) {}
 
