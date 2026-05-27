@@ -121,13 +121,22 @@ export default function EventTypeScreen() {
 
         const { data: userData } = await supabase
           .from('users')
-          .select('role, country_code')
+          .select('role, country_code, organiser_type')
           .eq('id', user.id)
           .single();
 
         const userRole = userData?.role as UserRole | undefined;
         const countryCode = userData?.country_code as string | undefined;
+        const organiserType = userData?.organiser_type as string | undefined;
         if (userRole) setRole(userRole);
+
+        // Travel agents skip the category grid entirely
+        if (organiserType === 'travel_agent') {
+          update({ isTravelAgent: true });
+          setRoleLoading(false);
+          router.replace('/create-event/travel-event');
+          return;
+        }
 
         const eventTypeFilter = userRole === 'organiser'
           ? ['public', 'both']

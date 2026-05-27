@@ -6,13 +6,25 @@ export interface CreateEventDraft {
   eventCategory: string;   // e.g. 'wedding', 'sports', 'concert' …
   eventName: string;
   eventDate: string;       // ISO date string  "YYYY-MM-DD"
-  eventEndTime: string;    // 24-h "HH:MM" — used to auto-compute organiser reveal
+  eventEndTime: string;    // 24-h "HH:MM" for regular events; ISO date for travel trips
   revealTime: string;      // ISO datetime string — set on reveal-time screen
   revealMode: string;      // 'during' | 'after' | 'custom'
   aesthetic: string;
   invitationCard: string;
   guestCount: number | null;
   pricingTier: string;
+  // ── Travel agent fields ──────────────────────────────────────────────────
+  travelPackage: {
+    id: string;
+    name: string;
+    shots: number;
+    pricePerPerson: number;
+  } | null;
+  totalTravellers: number;
+  totalTravelCost: number;
+  isTravelAgent: boolean;
+  departureCity: string;
+  destination: string;
 }
 
 const EMPTY_DRAFT: CreateEventDraft = {
@@ -26,6 +38,12 @@ const EMPTY_DRAFT: CreateEventDraft = {
   invitationCard: '',
   guestCount: null,
   pricingTier: '',
+  travelPackage: null,
+  totalTravellers: 2,
+  totalTravelCost: 0,
+  isTravelAgent: false,
+  departureCity: '',
+  destination: '',
 };
 
 // ── Context ────────────────────────────────────────────────────────────────
