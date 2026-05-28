@@ -162,7 +162,22 @@ export default function GuestJoin() {
         if (error || !ev) { setScreenState('not_found'); return; }
         if (ev.status === 'revealed') { setScreenState('revealed'); return; }
 
-        setEvent(ev);
+        // Resolve shot_limit: use event value if set, otherwise fall back to pricing config
+        let resolvedShotLimit = ev.shot_limit;
+        if (!resolvedShotLimit) {
+          try {
+            const { data: pricingData } = await supabase
+              .from('admin_settings')
+              .select('value')
+              .eq('key', 'pricing_config')
+              .single();
+            const configLimit = (pricingData?.value as any)?.extended_limits?.private_guest_shots;
+            resolvedShotLimit = typeof configLimit === 'number' && configLimit > 0 ? configLimit : 18;
+          } catch {
+            resolvedShotLimit = 18;
+          }
+        }
+        setEvent({ ...ev, shot_limit: resolvedShotLimit });
 
         const { data: host } = await supabase
           .from('users')

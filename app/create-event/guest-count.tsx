@@ -281,6 +281,7 @@ export default function GuestCountScreen() {
   const [packages,        setPackages]        = useState<SpecialPackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [selectedPkgId,   setSelectedPkgId]   = useState<string | null>(null);
+  const [hostShotLimit,   setHostShotLimit]   = useState(50);
 
   const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular, PlayfairDisplay_700Bold });
   const serif     = fontsLoaded ? 'PlayfairDisplay_400Regular' : undefined;
@@ -296,6 +297,17 @@ export default function GuestCountScreen() {
       if (data?.role) setRole(data.role as UserRole);
       // Attempt pricing_config fetch (no-op if table absent — we use constants)
       await fetchPricingConfig((data?.role as UserRole) ?? 'host');
+
+      // Fetch host shot limit from admin pricing config
+      try {
+        const { data: pricingData } = await supabase
+          .from('admin_settings')
+          .select('value')
+          .eq('key', 'pricing_config')
+          .single();
+        const hostLimit = (pricingData?.value as any)?.extended_limits?.host_shots;
+        if (typeof hostLimit === 'number' && hostLimit > 0) setHostShotLimit(hostLimit);
+      } catch { /* keep default 50 */ }
 
       // Fetch special packages for this role
       const userRole = data?.role as UserRole | undefined;
@@ -404,6 +416,15 @@ export default function GuestCountScreen() {
             <Text style={[s.infoNote, { color: theme.text, fontFamily: serif }]}>
               Guests take unlimited photos on their device and choose their best {SHOT_LIMITS.privateGuest} to upload.
             </Text>
+
+            {/* Host upload limit */}
+            <View style={[s.infoRow, { borderColor: 'rgba(255,255,255,0.1)', marginTop: 6, marginBottom: 20 }]}>
+              <Text style={[s.infoMain, { color: theme.text, fontFamily: serif }]}>
+                📷 You can upload up to{' '}
+                <Text style={{ fontFamily: serifBold, color: GOLD }}>{hostShotLimit}</Text>
+                {' '}photos as the event host
+              </Text>
+            </View>
 
             {/* Special packages — host */}
             {!packagesLoading && packages.length > 0 && (

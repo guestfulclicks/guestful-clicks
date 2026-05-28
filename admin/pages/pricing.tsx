@@ -25,6 +25,16 @@ const CARD  = { backgroundColor: '#FFFFFF', border: '1px solid #E8E3DC', borderR
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface ShotLimitsConfig {
+  private_guest_shots: number;
+  host_shots:          number;
+  organiser_shots:     number;
+  tier_1_shots:        number;
+  tier_2_shots:        number;
+  tier_3_shots:        number;
+  tier_4_shots:        number;
+}
+
 interface PricingConfig {
   private_host:        { maxGuests: number; price: number }[];
   public_organiser:    { singleEvent: number; monthlyUnlimited: number };
@@ -34,6 +44,7 @@ interface PricingConfig {
   currency_symbol:     string;
   last_updated:        string;
   last_updated_by:     string;
+  extended_limits?:    ShotLimitsConfig;
 }
 
 interface ChangeEntry {
@@ -75,6 +86,18 @@ function timeAgo(iso: string) {
   const h = Math.floor(d / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+function defaultShotLimits(): ShotLimitsConfig {
+  return {
+    private_guest_shots: SHOT_LIMITS.privateGuest,
+    host_shots:          50,
+    organiser_shots:     SHOT_LIMITS.privateGuest,
+    tier_1_shots:        SHOT_LIMITS.public99,
+    tier_2_shots:        SHOT_LIMITS.public199,
+    tier_3_shots:        SHOT_LIMITS.public299,
+    tier_4_shots:        SHOT_LIMITS.public499,
+  };
 }
 
 function configKey(countryCode: string) {
@@ -124,6 +147,13 @@ export default function PricingPage() {
   const [history,        setHistory]         = useState<ChangeEntry[]>([]);
   const [savedMsg,       setSavedMsg]        = useState('');
 
+  // Shot limits — separate edit/save cycle
+  const [limitsConfig,   setLimitsConfig]    = useState<ShotLimitsConfig>(defaultShotLimits());
+  const [limitsDraft,    setLimitsDraft]     = useState<ShotLimitsConfig>(defaultShotLimits());
+  const [limitsEditing,  setLimitsEditing]   = useState(false);
+  const [savingLimits,   setSavingLimits]    = useState(false);
+  const [limitsSavedMsg, setLimitsSavedMsg]  = useState('');
+
   // For adding a new country
   const [addMode,        setAddMode]         = useState(false);
   const [addCode,        setAddCode]         = useState('');
@@ -161,12 +191,19 @@ export default function PricingPage() {
       setHasConfig(false);
       setConfig(defaultConfig(sym));
       setDraft(defaultConfig(sym));
+      const defaults = defaultShotLimits();
+      setLimitsConfig(defaults);
+      setLimitsDraft(defaults);
     } else {
       setHasConfig(true);
       const cfg = data.value as PricingConfig;
       setConfig(cfg);
       setDraft(cfg);
+      const ext = cfg.extended_limits ?? defaultShotLimits();
+      setLimitsConfig(ext);
+      setLimitsDraft(ext);
     }
+    setLimitsEditing(false);
     setConfigLoading(false);
   }, []);
 
@@ -232,6 +269,13 @@ export default function PricingPage() {
 
     const toSave: PricingConfig = {
       ...draft,
+      extended_limits: {
+        ...limitsConfig,
+        tier_1_shots: draft.public_participant[0]?.shots ?? limitsConfig.tier_1_shots,
+        tier_2_shots: draft.public_participant[1]?.shots ?? limitsConfig.tier_2_shots,
+        tier_3_shots: draft.public_participant[2]?.shots ?? limitsConfig.tier_3_shots,
+        tier_4_shots: draft.public_participant[3]?.shots ?? limitsConfig.tier_4_shots,
+      },
       currency_symbol: currSymbol,
       last_updated: new Date().toISOString(),
       last_updated_by: admin.full_name || admin.email,
@@ -243,6 +287,10 @@ export default function PricingPage() {
 
     if (!error) {
       setConfig(toSave);
+      if (toSave.extended_limits) {
+        setLimitsConfig(toSave.extended_limits);
+        setLimitsDraft(toSave.extended_limits);
+      }
       setHasConfig(true);
       setEditing(false);
       setSavedMsg('Pricing saved.');
@@ -269,6 +317,36 @@ export default function PricingPage() {
     setAddMode(false);
     setAddCode('');
     setEditing(true);
+  };
+
+  const handleSaveLimits = async () => {
+    if (!admin) return;
+    setSavingLimits(true);
+
+    const updatedConfig: PricingConfig = {
+      ...config,
+      extended_limits: limitsDraft,
+      last_updated: new Date().toISOString(),
+      last_updated_by: admin.full_name || admin.email,
+    };
+
+    const { error } = await supabase
+      .from('admin_settings')
+      .upsert({ key: configKey(selectedCode), value: updatedConfig }, { onConflict: 'key' });
+
+    if (!error) {
+      setConfig(updatedConfig);
+      setLimitsConfig(limitsDraft);
+      setLimitsEditing(false);
+      setLimitsSavedMsg('Shot limits saved.');
+      setTimeout(() => setLimitsSavedMsg(''), 3000);
+
+      logAdminActivity(admin.id, 'shot_limits_updated', 'pricing_config', selectedCode, {
+        old_values: limitsConfig,
+        new_values:  limitsDraft,
+      });
+    }
+    setSavingLimits(false);
   };
 
   const updatePrivateTier   = (i: number, field: 'maxGuests' | 'price', val: number) =>
@@ -510,37 +588,98 @@ export default function PricingPage() {
             </div>
           </div>
 
-          {/* Shot Limits */}
+          {/* Shot Limits — separate save cycle */}
           <div style={CARD}>
-            <SectionTitle title="Shot Limits" sub="Max uploads per participant per event." />
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr>
-                {['Access Type', 'Shot Limit'].map(h => <th key={h} style={th}>{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {([
-                  { label: 'Private Event Guest', key: 'privateGuest' as const },
-                  { label: `Public ${sym}99 Tier`, key: 'public99' as const },
-                  { label: `Public ${sym}199 Tier`, key: 'public199' as const },
-                  { label: `Public ${sym}299 Tier`, key: 'public299' as const },
-                  { label: `Public ${sym}499 Tier`, key: 'public499' as const },
-                ] as const).map(row => (
-                  <tr key={row.key}>
-                    <td style={td}>{row.label}</td>
-                    <td style={td}>
-                      {editing ? (
-                        <input type="number" value={draft.shot_limits[row.key]} min={1}
-                          onChange={e => setDraft(d => ({ ...d, shot_limits: { ...d.shot_limits, [row.key]: Number(e.target.value) } }))}
-                          style={{ width: '80px', padding: '4px 6px', border: '1px solid #D4A853', borderRadius: '4px', fontFamily: MONO, fontSize: '12px' }}
-                        />
-                      ) : (
-                        <span style={{ fontWeight: '600', color: '#0C0904' }}>{cfg.shot_limits[row.key]} shots</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' as const }}>
+              <SectionTitle title="Shot Limits" sub="Max uploads per person per event. Applies immediately to all new joins." />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                {limitsSavedMsg && (
+                  <span style={{ fontSize: '12px', color: '#1A7A40', fontFamily: MONO }}>{limitsSavedMsg}</span>
+                )}
+                {canEdit && !limitsEditing && (
+                  <button onClick={() => { setLimitsDraft({ ...limitsConfig }); setLimitsEditing(true); }}
+                    style={{ padding: '7px 16px', backgroundColor: '#F5F3EF', color: '#555', border: '1px solid #DDD', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontFamily: MONO }}>
+                    Edit Shot Limits
+                  </button>
+                )}
+                {limitsEditing && (
+                  <>
+                    <button onClick={() => { setLimitsDraft({ ...limitsConfig }); setLimitsEditing(false); }}
+                      style={{ padding: '7px 14px', backgroundColor: '#F5F3EF', color: '#555', border: '1px solid #DDD', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontFamily: MONO }}>
+                      Cancel
+                    </button>
+                    <button onClick={handleSaveLimits} disabled={savingLimits}
+                      style={{ padding: '7px 16px', backgroundColor: GOLD, color: '#0C0904', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: savingLimits ? 'default' : 'pointer', fontFamily: MONO }}>
+                      {savingLimits ? 'Saving…' : 'Save Shot Limits'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* GUEST SHOT LIMITS */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '10px', color: '#888', fontFamily: MONO, textTransform: 'uppercase' as const, letterSpacing: '1px', marginBottom: '12px' }}>
+                Guest Shot Limits
+              </div>
+              {([
+                { label: 'Private guest shots',  key: 'private_guest_shots' as const, note: 'Camera limit per guest on private events' },
+                { label: 'Host shot limit',       key: 'host_shots'          as const, note: 'Max photos the event creator can upload' },
+                { label: 'Organiser shot limit',  key: 'organiser_shots'     as const, note: 'Default upload limit for public organiser accounts' },
+              ] as const).map(({ label, key, note }) => (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #F5F3EF', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#0C0904', fontFamily: MONO, marginBottom: '2px' }}>{label}</div>
+                    <div style={{ fontSize: '11px', color: '#aaa', fontFamily: MONO }}>{note}</div>
+                  </div>
+                  {limitsEditing ? (
+                    <input type="number" min={1} max={100} value={limitsDraft[key]}
+                      onChange={(e) => setLimitsDraft((d) => ({ ...d, [key]: Number(e.target.value) }))}
+                      style={{ width: '72px', padding: '5px 8px', border: `1px solid ${GOLD}`, borderRadius: '6px', fontFamily: MONO, fontSize: '14px', color: '#0C0904', textAlign: 'center' as const }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '16px', fontWeight: '700', color: '#0C0904', fontFamily: MONO, minWidth: '60px', textAlign: 'right' as const }}>
+                      {limitsConfig[key]} shots
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* PUBLIC PARTICIPANT SHOT LIMITS */}
+            <div>
+              <div style={{ fontSize: '10px', color: '#888', fontFamily: MONO, textTransform: 'uppercase' as const, letterSpacing: '1px', marginBottom: '12px' }}>
+                Public Participant Shot Limits
+              </div>
+              {([
+                { label: `Tier 1 shots`,  key: 'tier_1_shots' as const, price: cfg.public_participant[0]?.price },
+                { label: `Tier 2 shots`,  key: 'tier_2_shots' as const, price: cfg.public_participant[1]?.price },
+                { label: `Tier 3 shots`,  key: 'tier_3_shots' as const, price: cfg.public_participant[2]?.price },
+                { label: `Tier 4 shots`,  key: 'tier_4_shots' as const, price: cfg.public_participant[3]?.price },
+              ] as const).map(({ label, key, price }) => (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #F5F3EF', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#0C0904', fontFamily: MONO, marginBottom: '2px' }}>
+                      {label}
+                      {price ? <span style={{ color: GOLD, marginLeft: '6px' }}>({sym}{price})</span> : null}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#aaa', fontFamily: MONO }}>
+                      Shot limit for the {sym}{price ?? '—'} participant tier
+                    </div>
+                  </div>
+                  {limitsEditing ? (
+                    <input type="number" min={1} max={100} value={limitsDraft[key]}
+                      onChange={(e) => setLimitsDraft((d) => ({ ...d, [key]: Number(e.target.value) }))}
+                      style={{ width: '72px', padding: '5px 8px', border: `1px solid ${GOLD}`, borderRadius: '6px', fontFamily: MONO, fontSize: '14px', color: '#0C0904', textAlign: 'center' as const }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '16px', fontWeight: '700', color: '#0C0904', fontFamily: MONO, minWidth: '60px', textAlign: 'right' as const }}>
+                      {limitsConfig[key]} shots
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
         </div>
