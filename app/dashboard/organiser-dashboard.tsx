@@ -30,6 +30,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../supabase/client';
 import { REVENUE_SHARE, PUBLIC_PARTICIPANT_PRICING } from '../../shared/constants';
+import TravelAgentDashboard from './travel-agent-dashboard';
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -241,10 +242,11 @@ export default function OrganiserDashboard() {
   const serif     = fontsLoaded ? 'PlayfairDisplay_400Regular' : undefined;
   const serifBold = fontsLoaded ? 'PlayfairDisplay_700Bold'    : undefined;
 
-  const [theme, setTheme]         = useState(DEFAULT_TH);
-  const [userId, setUserId]       = useState('');
-  const [dashView, setDashView]   = useState<DashView>('list');
-  const [isLoading, setIsLoading] = useState(true);
+  const [theme, setTheme]             = useState(DEFAULT_TH);
+  const [userId, setUserId]           = useState('');
+  const [organiserType, setOrganiserType] = useState<string | null>(null);
+  const [dashView, setDashView]       = useState<DashView>('list');
+  const [isLoading, setIsLoading]     = useState(true);
 
   // VIEW 1
   const [events, setEvents]         = useState<EventRow[]>([]);
@@ -278,7 +280,19 @@ export default function OrganiserDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setIsLoading(false); return; }
       setUserId(user.id);
-      await Promise.all([loadEvents(user.id), loadEarnings(user.id)]);
+
+      // Read organiser_type to decide which dashboard to show
+      const { data: userData } = await supabase
+        .from('users')
+        .select('organiser_type')
+        .eq('id', user.id)
+        .single();
+      const ot = userData?.organiser_type as string | null ?? 'event_organiser';
+      setOrganiserType(ot);
+
+      if (ot !== 'travel_agent') {
+        await Promise.all([loadEvents(user.id), loadEarnings(user.id)]);
+      }
       setIsLoading(false);
     })();
     return () => {
@@ -555,6 +569,11 @@ export default function OrganiserDashboard() {
   const BG    = theme.background;
   const TXT   = theme.text;
   const MUTED = `${TXT}80`;
+
+  // ── Travel agent: delegate entirely to TravelAgentDashboard ───────────────
+  if (organiserType === 'travel_agent') {
+    return <TravelAgentDashboard userId={userId} />;
+  }
 
   // ── VIEW 1 — ORGANISER HOME ───────────────────────────────────────────────
 
