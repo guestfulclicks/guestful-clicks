@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { id: 'analytics',     label: 'Analytics',        icon: '📈', permission: 'canViewAnalytics'},
   { id: 'kyc',           label: 'KYC Review',       icon: '✅', permission: 'canViewKYC'      },
   { id: 'pricing',       label: 'Pricing',          icon: '🏷️', permission: 'canEditPricing'  },
+  { id: 'packages',      label: 'Packages',         icon: '📦', permission: 'canEditPricing'  },
   { id: 'notifications', label: 'Notifications',    icon: '🔔', permission: 'canSendNotifications' },
   { id: 'settings',      label: 'Settings',         icon: '⚙️', permission: 'canEditSettings' },
   { id: 'admin-mgmt',    label: 'Admin Management', icon: '👤', permission: 'canManageAdmins' },
