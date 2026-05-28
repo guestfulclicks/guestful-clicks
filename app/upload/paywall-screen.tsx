@@ -65,6 +65,15 @@ interface TierConfig {
   is_popular:  boolean;
 }
 
+interface SpecialPackage {
+  id: string;
+  name: string;
+  shots: number;
+  price_per_person: number;
+  description: string | null;
+  is_featured: boolean;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtINR(n: number): string {
@@ -103,6 +112,8 @@ export default function PaywallScreen() {
   const [eventName, setEventName]     = useState('');
   const [tiers, setTiers]             = useState<TierConfig[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(1);   // default to 2nd tier
+  const [specPkgs,        setSpecPkgs]        = useState<SpecialPackage[]>([]);
+  const [selectedSpecPkgId, setSelectedSpecPkgId] = useState<string | null>(null);
   const [userName, setUserName]       = useState('');
   const [userPhone, setUserPhone]     = useState('');
   const [payError, setPayError]       = useState<string | null>(null);
@@ -161,14 +172,33 @@ export default function PaywallScreen() {
       }
 
       setScreenState('select');
+
+      // Fetch special packages available to public participants
+      const { data: pkgs } = await supabase
+        .from('packages')
+        .select('id, name, shots, price_per_person, description, is_featured')
+        .eq('is_active', true)
+        .in('event_type', ['public', 'both'])
+        .or('user_type.is.null,user_type.eq.all')
+        .eq('country_code', 'IN')
+        .order('shots', { ascending: true });
+      if (pkgs?.length) setSpecPkgs(pkgs as SpecialPackage[]);
     })();
   }, [paramEventId]);
 
   // ── Validation ────────────────────────────────────────────────────────────
 
   const phoneDigits = userPhone.replace(/\D/g, '');
-  const canPay      = userName.trim().length >= 2 && phoneDigits.length >= 10 && tiers.length > 0;
-  const activeTier  = tiers[selectedIdx] ?? tiers[0];
+  const selectedSpecPkg = specPkgs.find((p) => p.id === selectedSpecPkgId) ?? null;
+  const activeTier: TierConfig = selectedSpecPkg
+    ? {
+        shots:       selectedSpecPkg.shots,
+        price:       selectedSpecPkg.price_per_person,
+        description: selectedSpecPkg.description ?? '',
+        is_popular:  selectedSpecPkg.is_featured,
+      }
+    : (tiers[selectedIdx] ?? tiers[0]);
+  const canPay = userName.trim().length >= 2 && phoneDigits.length >= 10 && (tiers.length > 0 || specPkgs.length > 0);
 
   // ── Success animation ────────────────────────────────────────────────────
 
@@ -188,9 +218,10 @@ export default function PaywallScreen() {
     setScreenState('paying');
 
     try {
+      const pkgLabel = selectedSpecPkg ? `${selectedSpecPkg.name} · ` : '';
       const result = await openRazorpayCheckout({
         amount:       activeTier.price,
-        description:  `${activeTier.shots} shots · ${eventName || 'Event'}`,
+        description:  `${pkgLabel}${activeTier.shots} shots · ${eventName || 'Event'}`,
         userName:     userName.trim(),
         userEmail:    '',
         eventName:    eventName,
@@ -207,8 +238,9 @@ export default function PaywallScreen() {
           name:         userName.trim(),
           qr_token:     token,
           amount_paid:  activeTier.price,
-          tier:         SHOT_KEY_MAP[activeTier.shots] ?? 'free',
+          tier:         selectedSpecPkg ? `pkg_${selectedSpecPkg.id.slice(0, 8)}` : (SHOT_KEY_MAP[activeTier.shots] ?? 'free'),
           shot_limit:   activeTier.shots,
+          package_id:   selectedSpecPkg?.id ?? null,
           upload_count: 0,
           shots_used:   0,
           joined_at:    new Date().toISOString(),
@@ -346,7 +378,7 @@ export default function PaywallScreen() {
                   { borderColor: isSelected ? GOLD : BORDER },
                   isSelected && { backgroundColor: GOLD_T },
                 ]}
-                onPress={() => setSelectedIdx(idx)}
+                onPress={() => { setSelectedIdx(idx); setSelectedSpecPkgId(null); }}
                 activeOpacity={0.82}
               >
                 {tier.is_popular && (
@@ -383,6 +415,58 @@ export default function PaywallScreen() {
             );
           })}
         </View>
+
+        {/* Special packages */}
+        {specPkgs.length > 0 && (
+          <>
+            <Text style={[sc.specHead, { fontFamily: serif }]}>SPECIAL PACKAGES</Text>
+            {specPkgs.map((pkg) => {
+              const isSelected = selectedSpecPkgId === pkg.id;
+              return (
+                <TouchableOpacity
+                  key={pkg.id}
+                  style={[sc.tierCard, { borderColor: isSelected ? GOLD : BORDER }, isSelected && { backgroundColor: GOLD_T }]}
+                  onPress={() => {
+                    setSelectedSpecPkgId(isSelected ? null : pkg.id);
+                  }}
+                  activeOpacity={0.82}
+                >
+                  {pkg.is_featured && (
+                    <View style={sc.popularBadge}>
+                      <Text style={[sc.popularBadgeText, { fontFamily: serifBold }]}>⭐ POPULAR</Text>
+                    </View>
+                  )}
+                  <View style={sc.tierRow}>
+                    <View style={sc.tierLeft}>
+                      <Text style={[sc.tierShots, { color: isSelected ? GOLD : WW, fontFamily: serifBold }]}>
+                        {pkg.shots}
+                      </Text>
+                      <Text style={[sc.tierShotsLabel, { fontFamily: serif }]}>shots</Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={[sc.specPkgName, { color: isSelected ? WW : MUTED, fontFamily: serifBold }]}>
+                        {pkg.name}
+                      </Text>
+                      {pkg.description ? (
+                        <Text style={[sc.tierDesc, { fontFamily: serif, color: isSelected ? WW : MUTED }]}>
+                          {pkg.description}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={sc.tierRight}>
+                      <Text style={[sc.tierPrice, { color: isSelected ? GOLD : WW, fontFamily: serifBold }]}>
+                        {fmtINR(pkg.price_per_person)}
+                      </Text>
+                      <View style={[sc.radio, { borderColor: isSelected ? GOLD : BORDER }]}>
+                        {isSelected && <View style={sc.radioFill} />}
+                      </View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
 
         {/* Name + phone inputs */}
         <View style={sc.inputsWrap}>
@@ -576,6 +660,8 @@ const sc = StyleSheet.create({
   payBtnDisabled: { opacity: 0.38 },
   payBtnText:     { fontSize: 15, color: '#0C0904', letterSpacing: 1.4, textTransform: 'uppercase' },
 
+  specHead:     { fontSize: 10, letterSpacing: 2, color: MUTED, marginBottom: 10, marginTop: 4, textTransform: 'uppercase' },
+  specPkgName:  { fontSize: 14, lineHeight: 18, letterSpacing: 0.2 },
   validationHint: { fontSize: 12, color: 'rgba(255,82,82,0.7)', textAlign: 'center', marginBottom: 8 },
   secureNote:     { fontSize: 12, color: MUTED, textAlign: 'center', opacity: 0.55, letterSpacing: 0.3, marginTop: 4 },
 

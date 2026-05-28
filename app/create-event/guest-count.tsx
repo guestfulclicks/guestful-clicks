@@ -65,6 +65,17 @@ function fmtPrice(n: number): string {
   return `₹${n.toLocaleString('en-IN')}`;
 }
 
+// ── Special package type ───────────────────────────────────────────────────
+
+interface SpecialPackage {
+  id: string;
+  name: string;
+  shots: number;
+  price_per_person: number;
+  description: string | null;
+  is_featured: boolean;
+}
+
 // ── Sub-components ─────────────────────────────────────────────────────────
 
 function Logo({ color }: { color: string }) {
@@ -154,6 +165,55 @@ const tc = StyleSheet.create({
   check: { color: '#0C0904', fontSize: 11, fontWeight: '700' },
 });
 
+// ── Special package card ───────────────────────────────────────────────────
+
+function SpecialPkgCard({
+  pkg, selected, onSelect, textColor, serif, serifBold,
+}: {
+  pkg: SpecialPackage; selected: boolean; onSelect: () => void;
+  textColor: string; serif?: string; serifBold?: string;
+}) {
+  return (
+    <TouchableOpacity
+      style={[pkgc.card, {
+        backgroundColor: selected ? GOLD_T : 'rgba(255,255,255,0.04)',
+        borderColor:     selected ? GOLD : 'rgba(255,255,255,0.1)',
+        borderWidth:     selected ? 1.5 : 1,
+      }]}
+      onPress={onSelect}
+      activeOpacity={0.8}
+    >
+      <View style={pkgc.topRow}>
+        <Text style={[pkgc.name, { color: selected ? GOLD : textColor, fontFamily: serifBold }]}>
+          {pkg.is_featured ? '⭐ ' : ''}{pkg.name}
+        </Text>
+        <View style={pkgc.priceRow}>
+          <Text style={[pkgc.price, { fontFamily: serifBold }]}>{fmtPrice(pkg.price_per_person)}</Text>
+          {selected && (
+            <View style={pkgc.checkDot}><Text style={pkgc.checkTxt}>✓</Text></View>
+          )}
+        </View>
+      </View>
+      <Text style={[pkgc.shots, { fontFamily: serif }]}>📷 {pkg.shots} shots per guest</Text>
+      {pkg.description ? (
+        <Text style={[pkgc.desc, { color: textColor, fontFamily: serif }]}>{pkg.description}</Text>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
+const pkgc = StyleSheet.create({
+  card:     { borderRadius: 12, padding: 14, marginBottom: 8, gap: 5 },
+  topRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  name:     { flex: 1, fontSize: 15, lineHeight: 20, letterSpacing: 0.1 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  price:    { fontSize: 16, color: GOLD, letterSpacing: 0.2 },
+  checkDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: GOLD, justifyContent: 'center', alignItems: 'center' },
+  checkTxt: { color: '#0C0904', fontSize: 11, fontWeight: '700' },
+  shots:    { fontSize: 13, color: GOLD, opacity: 0.85 },
+  desc:     { fontSize: 12, lineHeight: 18, opacity: 0.55, fontStyle: 'italic' },
+});
+
 // ── Organiser participant table ────────────────────────────────────────────
 
 function ParticipantTable({ textColor, serif, serifBold }: { textColor: string; serif?: string; serifBold?: string }) {
@@ -218,6 +278,9 @@ export default function GuestCountScreen() {
   const [roleLoading, setRoleLoading] = useState(true);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [publicVisible, setPublicVisible] = useState(true);
+  const [packages,        setPackages]        = useState<SpecialPackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [selectedPkgId,   setSelectedPkgId]   = useState<string | null>(null);
 
   const [fontsLoaded] = useFonts({ PlayfairDisplay_400Regular, PlayfairDisplay_700Bold });
   const serif     = fontsLoaded ? 'PlayfairDisplay_400Regular' : undefined;
@@ -233,23 +296,55 @@ export default function GuestCountScreen() {
       if (data?.role) setRole(data.role as UserRole);
       // Attempt pricing_config fetch (no-op if table absent — we use constants)
       await fetchPricingConfig((data?.role as UserRole) ?? 'host');
+
+      // Fetch special packages for this role
+      const userRole = data?.role as UserRole | undefined;
+      setPackagesLoading(true);
+      const evTypes  = userRole === 'organiser' ? ['public', 'both'] : ['private', 'both'];
+      const userType = userRole === 'organiser' ? 'organiser' : 'host';
+      const { data: pkgs } = await supabase
+        .from('packages')
+        .select('id, name, shots, price_per_person, description, is_featured')
+        .eq('is_active', true)
+        .in('event_type', evTypes)
+        .or(`user_type.eq.${userType},user_type.is.null`)
+        .eq('country_code', 'IN')
+        .order('shots', { ascending: true });
+      setPackages((pkgs ?? []) as SpecialPackage[]);
+      setPackagesLoading(false);
+
       setRoleLoading(false);
     })();
   }, []);
 
   const isOrganiser = role === 'organiser';
 
-  const canCreate = isOrganiser || selectedIdx !== null;
+  const selectedPkg = packages.find((p) => p.id === selectedPkgId) ?? null;
+  const canCreate = isOrganiser || selectedIdx !== null || selectedPkgId !== null;
 
   const handleCreate = () => {
     if (!canCreate) return;
-    if (isOrganiser) {
-      update({ guestCount: 0, pricingTier: PUBLIC_ORGANISER_PRICING.singleEvent.toString() });
+
+    if (selectedPkg) {
+      // Special package selected — overrides standard tier
+      update({
+        guestCount:   0,
+        pricingTier:  selectedPkg.price_per_person.toString(),
+        eventPackage: {
+          id:             selectedPkg.id,
+          name:           selectedPkg.name,
+          shots:          selectedPkg.shots,
+          pricePerPerson: selectedPkg.price_per_person,
+        },
+      });
+    } else if (isOrganiser) {
+      update({ guestCount: 0, pricingTier: PUBLIC_ORGANISER_PRICING.singleEvent.toString(), eventPackage: null });
     } else {
       const tier = HOST_TIERS[selectedIdx!];
       update({
-        guestCount: tier.maxGuests === Infinity ? 999 : tier.maxGuests,
-        pricingTier: tier.price.toString(),
+        guestCount:   tier.maxGuests === Infinity ? 999 : tier.maxGuests,
+        pricingTier:  tier.price.toString(),
+        eventPackage: null,
       });
     }
     router.push('/create-event/pricing');
@@ -310,6 +405,27 @@ export default function GuestCountScreen() {
               Guests take unlimited photos on their device and choose their best {SHOT_LIMITS.privateGuest} to upload.
             </Text>
 
+            {/* Special packages — host */}
+            {!packagesLoading && packages.length > 0 && (
+              <>
+                <SectionLabel label="SPECIAL PACKAGES" textColor={theme.text} serif={serif} />
+                {packages.map((pkg) => (
+                  <SpecialPkgCard
+                    key={pkg.id}
+                    pkg={pkg}
+                    selected={selectedPkgId === pkg.id}
+                    onSelect={() => {
+                      setSelectedPkgId(selectedPkgId === pkg.id ? null : pkg.id);
+                      setSelectedIdx(null);
+                    }}
+                    textColor={theme.text}
+                    serif={serif}
+                    serifBold={serifBold}
+                  />
+                ))}
+              </>
+            )}
+
             {/* Visibility toggle */}
             <SectionLabel label="VISIBILITY" textColor={theme.text} serif={serif} />
             <View style={s.toggleRow}>
@@ -341,7 +457,7 @@ export default function GuestCountScreen() {
             </View>
 
             {/* Organiser fee */}
-            <View style={[s.feeCard, { borderColor: GOLD }]}>
+            <View style={[s.feeCard, { borderColor: selectedPkgId ? 'rgba(255,255,255,0.12)' : GOLD, opacity: selectedPkgId ? 0.45 : 1 }]}>
               <View style={s.feeLeft}>
                 <Text style={[s.feeLabel, { color: theme.text, fontFamily: serif }]}>Event creation fee</Text>
                 <Text style={[s.feeNote, { color: theme.text, fontFamily: serif }]}>One-time · single event</Text>
@@ -350,6 +466,24 @@ export default function GuestCountScreen() {
                 {fmtPrice(PUBLIC_ORGANISER_PRICING.singleEvent)}
               </Text>
             </View>
+
+            {/* Special packages — organiser */}
+            {!packagesLoading && packages.length > 0 && (
+              <>
+                <SectionLabel label="SPECIAL PACKAGES" textColor={theme.text} serif={serif} />
+                {packages.map((pkg) => (
+                  <SpecialPkgCard
+                    key={pkg.id}
+                    pkg={pkg}
+                    selected={selectedPkgId === pkg.id}
+                    onSelect={() => setSelectedPkgId(selectedPkgId === pkg.id ? null : pkg.id)}
+                    textColor={theme.text}
+                    serif={serif}
+                    serifBold={serifBold}
+                  />
+                ))}
+              </>
+            )}
           </>
         )}
 
@@ -360,22 +494,28 @@ export default function GuestCountScreen() {
       <View style={[s.footer, { backgroundColor: theme.background, paddingBottom: insets.bottom + 24 }]}>
         {/* Summary line */}
         <View style={s.summaryRow}>
-          {!isOrganiser && selectedIdx !== null && (
+          {selectedPkg ? (
+            <>
+              <Text style={[s.summaryKey, { color: theme.text, fontFamily: serif }]}>Special package</Text>
+              <Text style={[s.summaryVal, { fontFamily: serifBold }]}>
+                {selectedPkg.name} · {fmtPrice(selectedPkg.price_per_person)}
+              </Text>
+            </>
+          ) : !isOrganiser && selectedIdx !== null ? (
             <>
               <Text style={[s.summaryKey, { color: theme.text, fontFamily: serif }]}>Selected tier</Text>
               <Text style={[s.summaryVal, { fontFamily: serifBold }]}>
                 {HOST_TIERS[selectedIdx].label} · {fmtPrice(HOST_TIERS[selectedIdx].price)}
               </Text>
             </>
-          )}
-          {isOrganiser && (
+          ) : isOrganiser ? (
             <>
               <Text style={[s.summaryKey, { color: theme.text, fontFamily: serif }]}>Creation fee</Text>
               <Text style={[s.summaryVal, { fontFamily: serifBold }]}>
                 {fmtPrice(PUBLIC_ORGANISER_PRICING.singleEvent)}
               </Text>
             </>
-          )}
+          ) : null}
         </View>
 
         <TouchableOpacity

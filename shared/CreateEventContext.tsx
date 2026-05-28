@@ -13,6 +13,13 @@ export interface CreateEventDraft {
   invitationCard: string;
   guestCount: number | null;
   pricingTier: string;
+  // ── Special package (host / organiser) ───────────────────────────────────
+  eventPackage: {
+    id: string;
+    name: string;
+    shots: number;
+    pricePerPerson: number;
+  } | null;
   // ── Travel agent fields ──────────────────────────────────────────────────
   travelPackage: {
     id: string;
@@ -38,6 +45,7 @@ const EMPTY_DRAFT: CreateEventDraft = {
   invitationCard: '',
   guestCount: null,
   pricingTier: '',
+  eventPackage: null,
   travelPackage: null,
   totalTravellers: 2,
   totalTravelCost: 0,
