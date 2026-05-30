@@ -144,7 +144,7 @@ export default function EventTypeScreen() {
 
         const query = supabase
           .from('event_categories')
-          .select('key, icon, title')
+          .select('name, icon')
           .eq('is_active', true)
           .in('event_type', eventTypeFilter)
           .order('sort_order', { ascending: true });
@@ -158,7 +158,7 @@ export default function EventTypeScreen() {
         const fallback = userRole === 'organiser' ? FALLBACK_ORGANISER_TYPES : FALLBACK_HOST_TYPES;
         setEventTypes(
           categories && categories.length > 0
-            ? categories.map((c) => ({ key: c.key, icon: c.icon, title: c.title }))
+            ? categories.map((c) => ({ key: (c as any).name, icon: c.icon, title: (c as any).name }))
             : fallback,
         );
       } catch {
