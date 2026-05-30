@@ -55,9 +55,9 @@ interface NotifLog {
 
 const TEMPLATES = [
   { icon: '🖼️', title: 'Gallery Ready',   body: 'Your [eventName] gallery is live! Come see what everyone captured.' },
-  { icon: '🚀', title: 'New Feature',      body: 'Guestful Clicks just launched [feature]. Check it out now!' },
+  { icon: '🚀', title: 'New Feature',      body: 'CANDID Clicks just launched [feature]. Check it out now!' },
   { icon: '💰', title: 'Payout Sent',      body: '₹[amount] has been transferred to your account. Check your bank.' },
-  { icon: '✅', title: 'KYC Reminder',     body: 'Complete your KYC to start creating events on Guestful Clicks.' },
+  { icon: '✅', title: 'KYC Reminder',     body: 'Complete your KYC to start creating events on CANDID Clicks.' },
   { icon: '📅', title: 'Event Reminder',   body: 'Your event [eventName] is tomorrow! Make sure everything is ready.' },
 ];
 
@@ -443,7 +443,7 @@ export default function Notifications() {
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#0C0904', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: MONO }}>
               Deep Link <span style={{ color: '#aaa', fontWeight: '400' }}>(optional)</span>
             </label>
-            <input type="text" style={inputStyle} value={deepLink} onChange={e => setDeepLink(e.target.value)} placeholder="guestfulclicks://event/abc123" />
+            <input type="text" style={inputStyle} value={deepLink} onChange={e => setDeepLink(e.target.value)} placeholder="candidclicks://event/abc123" />
           </div>
 
           {error && (
@@ -477,7 +477,7 @@ export default function Notifications() {
               <div style={{ backgroundColor: '#1C1C1E', borderRadius: '16px', padding: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                   <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>📷</div>
-                  <div style={{ fontSize: '11px', color: '#aaa', fontFamily: MONO }}>GUESTFUL CLICKS · now</div>
+                  <div style={{ fontSize: '11px', color: '#aaa', fontFamily: MONO }}>CANDID CLICKS · now</div>
                 </div>
                 <div style={{ fontSize: '14px', fontWeight: '700', color: '#FFF', marginBottom: '4px', fontFamily: SERIF }}>
                   {title || <span style={{ color: '#555' }}>Your notification title</span>}

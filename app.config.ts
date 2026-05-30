@@ -1,26 +1,26 @@
 import { ExpoConfig } from 'expo/config';
 
 const config: ExpoConfig = {
-  name: 'guestful-clicks',
-  slug: 'guestful-clicks',
+  name: 'CANDID Clicks',
+  slug: 'candid-clicks',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
   newArchEnabled: true,
-  scheme: 'guestfulclicks',
+  scheme: 'candidclicks',
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
     backgroundColor: '#ffffff',
   },
   ios: {
-    bundleIdentifier: 'com.guestfulclicks.app',
+    bundleIdentifier: 'com.candidclicks.app',
     supportsTablet: true,
-    associatedDomains: ['applinks:join.guestfulclicks.com'],
+    associatedDomains: ['applinks:join.candidclicks.life'],
   },
   android: {
-    package: 'com.guestfulclicks.app',
+    package: 'com.candidclicks.app',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#0C0904',
@@ -34,11 +34,11 @@ const config: ExpoConfig = {
         data: [
           {
             scheme: 'https',
-            host: 'join.guestfulclicks.com',
+            host: 'join.candidclicks.life',
             pathPrefix: '/',
           },
           {
-            scheme: 'guestfulclicks',
+            scheme: 'candidclicks',
             host: 'join',
           },
         ],

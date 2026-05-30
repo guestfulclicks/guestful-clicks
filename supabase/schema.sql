@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Guestful Clicks — Complete Database Schema
+-- CANDID Clicks — Complete Database Schema
 -- Documentation only — reflects the live Supabase database as of 2026-05-30.
 -- Do NOT re-run this against a live database; use the migration files instead.
 --

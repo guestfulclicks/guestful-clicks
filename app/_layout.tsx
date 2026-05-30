@@ -54,12 +54,12 @@ export default function RootLayout() {
             void navigateByRole(session.user.id);
           } else {
             void (async () => {
-              const participant = await AsyncStorage.getItem('@guestful_participant');
+              const participant = await AsyncStorage.getItem('@candid_participant');
               setTimeout(() => router.replace(participant ? '/gallery/reveal-screen' : '/onboarding/slides'), 100);
             })();
           }
         } else if (event === 'SIGNED_OUT') {
-          void AsyncStorage.removeItem('@guestful_participant').then(() => {
+          void AsyncStorage.removeItem('@candid_participant').then(() => {
             setTimeout(() => router.replace('/onboarding/slides'), 100);
           });
         }

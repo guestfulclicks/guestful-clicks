@@ -36,7 +36,7 @@ const GOLD_T   = 'rgba(212,168,83,0.08)';
 const GOLD_B   = 'rgba(212,168,83,0.25)';
 const GREEN    = '#4CAF50';
 const H_PAD    = 24;
-const PART_KEY = '@guestful_participant';
+const PART_KEY = '@candid_participant';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ function Logo() {
   return (
     <View style={sc.logoRow}>
       <View style={sc.logoDot} />
-      <Text style={sc.logoText}>GUESTFUL CLICKS</Text>
+      <Text style={sc.logoText}>CANDID CLICKS</Text>
     </View>
   );
 }

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "guestful-clicks",
-    "slug": "guestful-clicks",
+    "name": "CANDID Clicks",
+    "slug": "candid-clicks",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

@@ -50,7 +50,7 @@ serve(async (_req) => {
       to:    token,
       sound: 'default',
       title: 'Gallery expiring soon 📸',
-      body:  `Your Guestful Clicks gallery for "${ev.title}" expires in 3 days. Download your photos before they\'re gone forever.`,
+      body:  `Your CANDID Clicks gallery for "${ev.title}" expires in 3 days. Download your photos before they\'re gone forever.`,
       data:  { eventId: ev.id },
     }));
 

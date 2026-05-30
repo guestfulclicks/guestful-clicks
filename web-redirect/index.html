@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Guestful Clicks</title>
+  <title>CANDID Clicks</title>
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#D4A853" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Guestful" />
+  <meta name="apple-mobile-web-app-title" content="Candid" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -390,7 +390,7 @@
   <div class="app-header">
     <div class="logo">
       <div class="logo-dot"></div>
-      <span class="logo-text">GUESTFUL CLICKS</span>
+      <span class="logo-text">CANDID CLICKS</span>
     </div>
     <button class="add-home-btn" id="addHomeBtn" onclick="promptInstall()">📲 Add to Home</button>
   </div>
@@ -455,7 +455,7 @@
         <div class="ac-icon">📷</div>
         <div class="ac-title">Contribute Photos</div>
       </div>
-      <p class="ac-desc">Download the Guestful Clicks app to shoot with your camera. Your photos appear in the reveal.</p>
+      <p class="ac-desc">Download the CANDID Clicks app to shoot with your camera. Your photos appear in the reveal.</p>
       <a href="#" id="getAppLink" class="btn-outline">Download the App — Free →</a>
     </div>
 
@@ -834,8 +834,8 @@
     document.getElementById('joinedName').textContent  = participant ? participant.name : 'Guest';
     document.getElementById('revealAtText').textContent = revealAt ? fmtDT(revealAt.toISOString()) : "the host's reveal";
     document.getElementById('getAppLink').href = isAndroid()
-      ? 'https://play.google.com/store/apps/details?id=com.guestfulclicks.app'
-      : 'https://apps.apple.com/app/guestful-clicks/id0000000000';
+      ? 'https://play.google.com/store/apps/details?id=com.candidclicks.app'
+      : 'https://apps.apple.com/app/candid-clicks/id0000000000';
     showScreen('waiting');
 
     if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
@@ -1048,7 +1048,7 @@
       dBtn.textContent = '↓';
       dBtn.setAttribute('aria-label', 'Download');
       dBtn.addEventListener('click', (function (url, i) {
-        return function (e) { e.stopPropagation(); dlPhoto(url, 'guestful-' + (i + 1) + '.jpg'); };
+        return function (e) { e.stopPropagation(); dlPhoto(url, 'candid-' + (i + 1) + '.jpg'); };
       })(photo.url, idx));
 
       acts.appendChild(hBtn);
@@ -1111,7 +1111,7 @@
     var btn = document.querySelector('.gal-dl-btn');
     if (btn) btn.textContent = '⏳ Saving…';
     for (var i = 0; i < display.length; i++) {
-      await dlPhoto(display[i].url, 'guestful-' + (i + 1) + '.jpg');
+      await dlPhoto(display[i].url, 'candid-' + (i + 1) + '.jpg');
       await new Promise(function (res) { setTimeout(res, 500); });
     }
     if (btn) btn.textContent = '⬇ Download All';
@@ -1161,7 +1161,7 @@
   };
   window.lbDownload = function () {
     var p = lbPhotos[lbIdx];
-    if (p) dlPhoto(p.url, 'guestful-' + (lbIdx + 1) + '.jpg');
+    if (p) dlPhoto(p.url, 'candid-' + (lbIdx + 1) + '.jpg');
   };
 
   // Touch swipe lightbox

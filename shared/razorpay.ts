@@ -37,9 +37,9 @@ export async function openRazorpayCheckout(
     key:         RAZORPAY_KEY_ID,
     amount:      options.amount * 100,       // rupees → paise
     currency:    'INR',
-    name:        'Guestful Clicks',
+    name:        'CANDID Clicks',
     description: options.description,
-    image:       'https://guestfulclicks.com/logo.png',
+    image:       'https://candidclicks.life/logo.png',
     prefill: {
       name:    options.userName,
       email:   options.userEmail,

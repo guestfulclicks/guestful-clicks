@@ -43,7 +43,7 @@ const THEMES: Record<string, { background: string; text: string }> = {
   'deep-pink':   { background: '#3B1321', text: '#F5C8D8'  },
   'burnt-orange':{ background: '#3D1C01', text: '#FFE0C0'  },
 };
-const THEME_KEY  = '@guestful_onboarding_theme';
+const THEME_KEY  = '@candid_onboarding_theme';
 const DEFAULT_TH = THEMES.midnight;
 const GOLD       = '#D4A853';
 const GOLD_T     = 'rgba(212,168,83,0.08)';
@@ -52,7 +52,7 @@ const GREEN      = '#4CAF50';
 const BLUE       = '#5B8AF0';
 const RED        = '#FF5252';
 const H_PAD      = 24;
-const JOIN_BASE  = 'https://join.guestfulclicks.com/guest/join?code=';
+const JOIN_BASE  = 'https://join.candidclicks.life/guest/join?code=';
 const { width: SW } = Dimensions.get('window');
 
 // Tier display meta
@@ -193,7 +193,7 @@ function Logo({ textColor }: { textColor: string }) {
   return (
     <View style={sc.logoRow}>
       <View style={[sc.logoDot, { backgroundColor: GOLD }]} />
-      <Text style={[sc.logoText, { color: textColor }]}>GUESTFUL CLICKS</Text>
+      <Text style={[sc.logoText, { color: textColor }]}>CANDID CLICKS</Text>
     </View>
   );
 }
@@ -514,7 +514,7 @@ export default function OrganiserDashboard() {
     if (Platform.OS === 'web') {
       (window as any).print?.();
     } else {
-      Alert.alert('Print', 'Open Guestful Clicks on a web browser to print the poster.');
+      Alert.alert('Print', 'Open CANDID Clicks on a web browser to print the poster.');
     }
   };
 
@@ -523,7 +523,7 @@ export default function OrganiserDashboard() {
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow gallery access to save the QR code.'); return; }
     qrRef.current?.toDataURL(async (base64: string) => {
       try {
-        const uri = `${FileSystem.documentDirectory}guestful_poster_${selectedEvent?.share_code}.png`;
+        const uri = `${FileSystem.documentDirectory}candid_poster_${selectedEvent?.share_code}.png`;
         await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
         await MediaLibrary.saveToLibraryAsync(uri);
         Alert.alert('Saved!', 'QR code saved to your gallery.');
@@ -544,7 +544,7 @@ export default function OrganiserDashboard() {
     let saved = 0;
     for (const photo of photos) {
       try {
-        const loc = `${FileSystem.documentDirectory}guestful_${Date.now()}.jpg`;
+        const loc = `${FileSystem.documentDirectory}candid_${Date.now()}.jpg`;
         await FileSystem.downloadAsync(photo.url, loc);
         await MediaLibrary.saveToLibraryAsync(loc);
         saved++;
@@ -774,7 +774,7 @@ export default function OrganiserDashboard() {
             </View>
             <View style={[sc.revDivider, { backgroundColor: GOLD_B }]} />
             <View style={sc.revRow}>
-              <Text style={[sc.revLabel, { color: MUTED, fontFamily: serif }]}>Guestful share (75%)</Text>
+              <Text style={[sc.revLabel, { color: MUTED, fontFamily: serif }]}>Candid share (75%)</Text>
               <Text style={[sc.revValue, { color: MUTED, fontFamily: serif }]}>{fmtINR(liveStats.platformShare)}</Text>
             </View>
             <View style={[sc.revDivider, { backgroundColor: GOLD_B }]} />
@@ -865,7 +865,7 @@ export default function OrganiserDashboard() {
             <View style={[sc.posterDivider, { backgroundColor: GOLD_B }]} />
             <View style={sc.posterWatermark}>
               <View style={sc.posterDot} />
-              <Text style={[sc.posterWatermarkText, { fontFamily: serif }]}>Guestful Clicks</Text>
+              <Text style={[sc.posterWatermarkText, { fontFamily: serif }]}>CANDID Clicks</Text>
             </View>
           </View>
 

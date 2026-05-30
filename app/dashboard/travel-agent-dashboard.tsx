@@ -41,7 +41,7 @@ const THEMES: Record<string, { background: string; text: string }> = {
   'deep-pink':   { background: '#3B1321', text: '#F5C8D8'  },
   'burnt-orange':{ background: '#3D1C01', text: '#FFE0C0'  },
 };
-const THEME_KEY  = '@guestful_onboarding_theme';
+const THEME_KEY  = '@candid_onboarding_theme';
 const DEFAULT_TH = THEMES.midnight;
 const GOLD       = '#D4A853';
 const GOLD_T     = 'rgba(212,168,83,0.08)';
@@ -150,7 +150,7 @@ function Logo({ textColor }: { textColor: string }) {
   return (
     <View style={sc.logoRow}>
       <View style={[sc.logoDot, { backgroundColor: GOLD }]} />
-      <Text style={[sc.logoText, { color: textColor }]}>GUESTFUL CLICKS</Text>
+      <Text style={[sc.logoText, { color: textColor }]}>CANDID CLICKS</Text>
     </View>
   );
 }
@@ -466,7 +466,7 @@ export default function TravelAgentDashboard({ userId }: { userId: string }) {
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow gallery access to save the QR code.'); return; }
     qrRef.current?.toDataURL(async (base64: string) => {
       try {
-        const uri = `${FileSystem.documentDirectory}guestful_qr_${selectedTrip?.share_code}.png`;
+        const uri = `${FileSystem.documentDirectory}candid_qr_${selectedTrip?.share_code}.png`;
         await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
         await MediaLibrary.saveToLibraryAsync(uri);
         Alert.alert('Saved!', 'QR code saved to your gallery.');

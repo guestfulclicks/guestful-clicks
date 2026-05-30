@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Guestful Clicks — Payout Amount Trigger
+-- CANDID Clicks — Payout Amount Trigger
 -- Run after schema.sql.
 --
 -- Whenever a participant pays (amount_paid > 0), this trigger recalculates the

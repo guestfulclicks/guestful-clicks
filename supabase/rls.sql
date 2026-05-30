@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Guestful Clicks — Row Level Security Policies
+-- CANDID Clicks — Row Level Security Policies
 -- Documentation only — reflects the live Supabase database as of 2026-05-27.
 -- Do NOT re-run against a live database without verifying existing policy names.
 --

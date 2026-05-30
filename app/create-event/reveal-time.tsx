@@ -25,7 +25,7 @@ import type { UserRole } from '../../shared/types';
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
-const THEME_KEY = '@guestful_onboarding_theme';
+const THEME_KEY = '@candid_onboarding_theme';
 const THEMES: Record<string, { background: string; text: string }> = {
   midnight:      { background: '#0C0904', text: '#F0E8D5' },
   graphite:      { background: '#1A1A1A', text: '#FFFFFF' },
@@ -232,7 +232,7 @@ function Logo({ color }: { color: string }) {
   return (
     <View style={styles.logoRow}>
       <View style={[styles.logoDot, { backgroundColor: color }]} />
-      <Text style={[styles.logoText, { color }]}>Guestful Clicks</Text>
+      <Text style={[styles.logoText, { color }]}>CANDID Clicks</Text>
     </View>
   );
 }

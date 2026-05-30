@@ -91,7 +91,7 @@ function Logo() {
   return (
     <View style={s.logoRow}>
       <View style={s.logoDot} />
-      <Text style={s.logoText}>GUESTFUL CLICKS</Text>
+      <Text style={s.logoText}>CANDID CLICKS</Text>
     </View>
   );
 }
@@ -227,7 +227,7 @@ export default function GuestJoin() {
       if (error) throw error;
 
       await AsyncStorage.setItem(
-        '@guestful_participant',
+        '@candid_participant',
         JSON.stringify({
           id:         participant.id,
           qr_token:   participant.qr_token,
@@ -393,7 +393,7 @@ export default function GuestJoin() {
           <View style={s.addHomeBanner}>
             <Text style={s.bannerIcon}>📷</Text>
             <Text style={s.bannerText}>
-              Save Guestful Clicks to your home screen to find your gallery after the reveal.
+              Save CANDID Clicks to your home screen to find your gallery after the reveal.
             </Text>
             <TouchableOpacity style={s.addHomeBtn} onPress={handleAddToHomeScreen}>
               <Text style={s.addHomeBtnText}>Add Shortcut →</Text>

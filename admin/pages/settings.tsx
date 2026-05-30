@@ -55,8 +55,8 @@ interface DisclaimerVersion {
 
 function defaultPlatform(): PlatformSettings {
   return {
-    platform_name:          'Guestful Clicks',
-    support_email:          'support@guestfulclicks.com',
+    platform_name:          'CANDID Clicks',
+    support_email:          'guest@candidclicks.life',
     max_photos_per_event:   500,
     default_shot_private:   30,
     reveal_delay_public_h:  2,
@@ -366,7 +366,7 @@ export default function Settings() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
         <div>
           <h1 style={{ fontFamily: SERIF, fontSize: '28px', fontWeight: '700', color: '#0C0904', margin: '0 0 6px' }}>Platform Settings</h1>
-          <p style={{ fontSize: '13px', color: '#888', margin: 0, fontFamily: MONO }}>Global configuration for the Guestful Clicks platform.</p>
+          <p style={{ fontSize: '13px', color: '#888', margin: 0, fontFamily: MONO }}>Global configuration for the CANDID Clicks platform.</p>
         </div>
       </div>
 

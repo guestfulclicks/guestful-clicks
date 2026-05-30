@@ -25,7 +25,7 @@ GoogleSignin.configure({
 
 // ── Theme ──────────────────────────────────────────────────────────────────────
 
-const THEME_STORAGE_KEY = '@guestful_onboarding_theme';
+const THEME_STORAGE_KEY = '@candid_onboarding_theme';
 
 const THEMES: Record<string, { background: string; text: string }> = {
   midnight:      { background: '#0C0904', text: '#F0E8D5' },
@@ -45,7 +45,7 @@ function Logo({ color }: { color: string }) {
   return (
     <View style={styles.logoRow}>
       <View style={[styles.logoDot, { backgroundColor: color }]} />
-      <Text style={[styles.logoText, { color }]}>Guestful Clicks</Text>
+      <Text style={[styles.logoText, { color }]}>CANDID Clicks</Text>
     </View>
   );
 }
@@ -125,7 +125,7 @@ export default function GoogleLogin() {
 
       <View style={styles.body}>
         <Text style={[styles.heading, { color: theme.text, fontFamily: serifBold }]}>
-          Welcome to{'\n'}Guestful Clicks
+          Welcome to{'\n'}CANDID Clicks
         </Text>
 
         <Text style={[styles.subtext, { color: theme.text, fontFamily: serif }]}>

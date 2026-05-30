@@ -19,7 +19,7 @@ import { supabase } from '../../supabase/client';
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
-const THEME_STORAGE_KEY = '@guestful_onboarding_theme';
+const THEME_STORAGE_KEY = '@candid_onboarding_theme';
 
 const THEMES: Record<string, { background: string; text: string }> = {
   midnight:      { background: '#0C0904', text: '#F0E8D5' },
@@ -73,7 +73,7 @@ function Logo({ color }: { color: string }) {
   return (
     <View style={styles.logoRow}>
       <View style={[styles.logoDot, { backgroundColor: color }]} />
-      <Text style={[styles.logoText, { color }]}>Guestful Clicks</Text>
+      <Text style={[styles.logoText, { color }]}>CANDID Clicks</Text>
     </View>
   );
 }
@@ -157,11 +157,11 @@ export default function SelectRole() {
       {/* Body */}
       <View style={styles.body}>
         <Text style={[styles.heading, { color: theme.text, fontFamily: serifBold }]}>
-          What brings you to{'\n'}Guestful Clicks?
+          What brings you to{'\n'}CANDID Clicks?
         </Text>
 
         <Text style={[styles.subtext, { color: theme.text, fontFamily: serif }]}>
-          Tell us how you'd like to use Guestful Clicks.
+          Tell us how you'd like to use CANDID Clicks.
         </Text>
 
         {/* Role cards */}

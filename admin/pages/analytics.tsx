@@ -235,7 +235,7 @@ function exportEventsXlsx(events: any[], participants: any[]) {
   ws['!cols'] = Object.keys(data[0] ?? {}).map(() => ({ wch: 18 }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Events');
-  XLSX.writeFile(wb, `GuestfulClicks_Events_${new Date().toISOString().split('T')[0]}.xlsx`);
+  XLSX.writeFile(wb, `CandidClicks_Events_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 function exportUsersXlsx(users: any[]) {
@@ -252,7 +252,7 @@ function exportUsersXlsx(users: any[]) {
   ws['!cols'] = Object.keys(data[0] ?? {}).map(() => ({ wch: 20 }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Users');
-  XLSX.writeFile(wb, `GuestfulClicks_Users_${new Date().toISOString().split('T')[0]}.xlsx`);
+  XLSX.writeFile(wb, `CandidClicks_Users_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 function exportRevenueXlsx(events: any[], participants: any[]) {
@@ -284,7 +284,7 @@ function exportRevenueXlsx(events: any[], participants: any[]) {
   ws['!cols'] = Object.keys(data[0] ?? {}).map(() => ({ wch: 18 }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Revenue');
-  XLSX.writeFile(wb, `GuestfulClicks_Revenue_${new Date().toISOString().split('T')[0]}.xlsx`);
+  XLSX.writeFile(wb, `CandidClicks_Revenue_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 function exportSummaryPdf(kpi: any, period: string) {
@@ -293,7 +293,7 @@ function exportSummaryPdf(kpi: any, period: string) {
 
   doc.setFillColor(12, 9, 4); doc.rect(0, 0, W, 40, 'F');
   doc.setTextColor(212, 168, 83); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
-  doc.text('Guestful Clicks', L, 18);
+  doc.text('CANDID Clicks', L, 18);
   doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(160, 140, 100);
   doc.text('Analytics Summary Report', L, 27);
   doc.setFontSize(9); doc.text(`Period: ${period} | Generated: ${new Date().toLocaleDateString('en-IN')}`, L, 35);
@@ -341,9 +341,9 @@ function exportSummaryPdf(kpi: any, period: string) {
 
   doc.setTextColor(140, 130, 110); doc.setFontSize(8);
   doc.text('This is a computer generated analytics summary. For detailed breakdowns export individual Excel reports.', L, 270);
-  doc.text('Guestful Clicks — support@guestfulclicks.com', L, 276);
+  doc.text('CANDID Clicks — guest@candidclicks.life', L, 276);
 
-  doc.save(`GuestfulClicks_Analytics_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`CandidClicks_Analytics_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
 // ── Live Event Map ────────────────────────────────────────────────────────────

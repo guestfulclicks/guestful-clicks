@@ -183,7 +183,7 @@ export default function AdminLogin() {
         <div style={styles.header}>
           <div style={styles.logoRow}>
             <div style={styles.logoDot} />
-            <span style={styles.logoText}>GUESTFUL CLICKS</span>
+            <span style={styles.logoText}>CANDID CLICKS</span>
           </div>
           <div style={styles.subheading}>Admin Panel</div>
           <h1 style={styles.heading}>Sign in to continue</h1>
@@ -203,7 +203,7 @@ export default function AdminLogin() {
               onChange={(e) => setEmail(e.target.value)}
               onFocus={() => setEmailFocus(true)}
               onBlur={() => setEmailFocus(false)}
-              placeholder="admin@guestfulclicks.com"
+              placeholder="admin@candidclicks.life"
               style={{
                 ...styles.input,
                 ...(emailFocus ? styles.inputFocus : {}),
@@ -261,7 +261,7 @@ export default function AdminLogin() {
 
         {/* Footer */}
         <div style={styles.footer}>
-          Guestful Clicks Admin<br />
+          CANDID Clicks Admin<br />
           All actions are logged and monitored.
         </div>
       </div>

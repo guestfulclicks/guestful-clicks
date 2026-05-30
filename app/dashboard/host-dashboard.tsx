@@ -44,14 +44,14 @@ const THEMES: Record<string, { background: string; text: string }> = {
   'deep-pink':   { background: '#3B1321', text: '#F5C8D8'  },
   'burnt-orange':{ background: '#3D1C01', text: '#FFE0C0'  },
 };
-const THEME_KEY  = '@guestful_onboarding_theme';
+const THEME_KEY  = '@candid_onboarding_theme';
 const DEFAULT_TH = THEMES.midnight;
 const GOLD       = '#D4A853';
 const GOLD_T     = 'rgba(212,168,83,0.08)';
 const GOLD_B     = 'rgba(212,168,83,0.25)';
 const GREEN      = '#4CAF50';
 const H_PAD      = 24;
-const JOIN_BASE  = 'https://join.guestfulclicks.com/guest/join?code=';
+const JOIN_BASE  = 'https://join.candidclicks.life/guest/join?code=';
 const { width: SW } = Dimensions.get('window');
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ function Logo({ textColor }: { textColor: string }) {
   return (
     <View style={sc.logoRow}>
       <View style={sc.logoDot} />
-      <Text style={[sc.logoText, { color: textColor }]}>GUESTFUL CLICKS</Text>
+      <Text style={[sc.logoText, { color: textColor }]}>CANDID CLICKS</Text>
     </View>
   );
 }
@@ -214,7 +214,7 @@ async function ensureHostParticipant(
   eventId: string,
   hostName: string,
 ): Promise<{ id: string; qr_token: string; event_id: string; name: string; shot_limit: number } | null> {
-  const cacheKey = `@guestful_host_${eventId}`;
+  const cacheKey = `@candid_host_${eventId}`;
   const cached = await AsyncStorage.getItem(cacheKey);
   if (cached) {
     try { return JSON.parse(cached); } catch { /* fall through to create */ }
@@ -459,7 +459,7 @@ export default function HostDashboard() {
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow gallery access to save the QR code.'); return; }
     qrRef.current?.toDataURL(async (base64: string) => {
       try {
-        const uri = `${FileSystem.documentDirectory}guestful_qr_${selectedEvent?.share_code}.png`;
+        const uri = `${FileSystem.documentDirectory}candid_qr_${selectedEvent?.share_code}.png`;
         await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
         await MediaLibrary.saveToLibraryAsync(uri);
         Alert.alert('Saved!', 'QR code saved to your gallery.');
@@ -487,7 +487,7 @@ export default function HostDashboard() {
     let saved = 0;
     for (const photo of photos) {
       try {
-        const fn  = `guestful_${Date.now()}.jpg`;
+        const fn  = `candid_${Date.now()}.jpg`;
         const loc = `${FileSystem.documentDirectory}${fn}`;
         await FileSystem.downloadAsync(photo.url, loc);
         await MediaLibrary.saveToLibraryAsync(loc);
@@ -511,7 +511,7 @@ export default function HostDashboard() {
       Alert.alert('Error', 'Could not set up camera access. Please try again.');
       return;
     }
-    await AsyncStorage.setItem('@guestful_participant', JSON.stringify(part));
+    await AsyncStorage.setItem('@candid_participant', JSON.stringify(part));
     router.push('/camera/camera-screen' as any);
   }, [selectedEvent, userInfo]);
 
@@ -525,7 +525,7 @@ export default function HostDashboard() {
       Alert.alert('Error', 'Could not access gallery. Please try again.');
       return;
     }
-    await AsyncStorage.setItem('@guestful_participant', JSON.stringify(part));
+    await AsyncStorage.setItem('@candid_participant', JSON.stringify(part));
     router.push('/gallery/reveal-screen' as any);
   }, [selectedEvent, userInfo]);
 

@@ -25,7 +25,7 @@ import { useCreateEvent } from '../../shared/CreateEventContext';
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
-const THEME_KEY = '@guestful_onboarding_theme';
+const THEME_KEY = '@candid_onboarding_theme';
 const THEMES: Record<string, { background: string; text: string }> = {
   midnight:      { background: '#0C0904', text: '#F0E8D5' },
   graphite:      { background: '#1A1A1A', text: '#FFFFFF'  },
@@ -114,7 +114,7 @@ function Logo({ color }: { color: string }) {
   return (
     <View style={s.logoRow}>
       <View style={[s.logoDot, { backgroundColor: color }]} />
-      <Text style={[s.logoText, { color }]}>Guestful Clicks</Text>
+      <Text style={[s.logoText, { color }]}>CANDID Clicks</Text>
     </View>
   );
 }
@@ -450,7 +450,7 @@ export default function TravelEventScreen() {
           <ActivityIndicator color={GOLD} size="large" style={{ marginVertical: 24 }} />
         ) : packages.length === 0 ? (
           <Text style={[s.emptyNote, { color: theme.text, fontFamily: serif }]}>
-            No travel packages available. Contact support@guestfulclicks.com to get started.
+            No travel packages available. Contact guest@candidclicks.life to get started.
           </Text>
         ) : (
           packages.map((pkg) => {
@@ -659,7 +659,7 @@ export default function TravelEventScreen() {
 
             {/* Content */}
             <View style={s.phoneContent}>
-              <Text style={[s.phoneBrand, { fontFamily: serif }]}>GUESTFUL CLICKS</Text>
+              <Text style={[s.phoneBrand, { fontFamily: serif }]}>CANDID CLICKS</Text>
 
               <Text style={[s.phoneEventName, { fontFamily: serifBold }]} numberOfLines={2}>
                 {tripName || 'Your Trip Name'}

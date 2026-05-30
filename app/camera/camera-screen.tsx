@@ -91,7 +91,7 @@ function Logo() {
   return (
     <View style={s.logoRow}>
       <View style={s.logoDot} />
-      <Text style={s.logoText}>GUESTFUL CLICKS</Text>
+      <Text style={s.logoText}>CANDID CLICKS</Text>
     </View>
   );
 }
@@ -153,14 +153,14 @@ export default function CameraScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem('@guestful_participant');
+        const raw = await AsyncStorage.getItem('@candid_participant');
         if (!raw) { router.replace('/guest/join' as any); return; }
 
         const p: ParticipantData = JSON.parse(raw);
         setParticipant(p);
         setShotsLeft(p.shot_limit);
 
-        const hapticPref = await AsyncStorage.getItem('@guestful_haptic');
+        const hapticPref = await AsyncStorage.getItem('@candid_haptic');
         setHapticOn(hapticPref !== '0');
 
         const { data: ev } = await supabase
@@ -223,7 +223,7 @@ export default function CameraScreen() {
   const toggleHaptic = async () => {
     const next = !hapticOn;
     setHapticOn(next);
-    await AsyncStorage.setItem('@guestful_haptic', next ? '1' : '0');
+    await AsyncStorage.setItem('@candid_haptic', next ? '1' : '0');
   };
 
   // ── Upload handler ────────────────────────────────────────────────────────
@@ -637,7 +637,7 @@ export default function CameraScreen() {
       <View style={s.addHomeBanner}>
         <Text style={s.bannerIcon}>📱</Text>
         <Text style={s.bannerText}>
-          Save Guestful Clicks to your home screen to find your gallery after the reveal.
+          Save CANDID Clicks to your home screen to find your gallery after the reveal.
         </Text>
         <TouchableOpacity
           style={s.addHomeBtn}

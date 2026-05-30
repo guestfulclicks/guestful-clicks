@@ -92,10 +92,10 @@ export function getCountryCode(): string {
 // Builds the full join URL for an event share code.
 // Query-param format matches useLocalSearchParams in app/guest/join.tsx and
 // maps to the /guest/join route via the Android intent filter / iOS App Link.
-// Example: "https://join.guestfulclicks.com/guest/join?code=GF4X9K2M"
+// Example: "https://join.candidclicks.life/guest/join?code=GF4X9K2M"
 
 export function buildJoinURL(shareCode: string): string {
-  return `https://join.guestfulclicks.com/guest/join?code=${shareCode}`;
+  return `https://join.candidclicks.life/guest/join?code=${shareCode}`;
 }
 
 // ── buildWhatsAppMessage ──────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ export function buildWhatsAppMessage(
 ): string {
   const joinURL = buildJoinURL(shareCode);
   return (
-    `You're invited to ${eventName} on Guestful Clicks! 📷\n` +
+    `You're invited to ${eventName} on CANDID Clicks! 📷\n` +
     `Scan to join and capture the moments:\n` +
     `${joinURL}\n` +
     `\n` +

@@ -23,7 +23,7 @@ import { useCreateEvent } from '../../shared/CreateEventContext';
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
-const THEME_STORAGE_KEY = '@guestful_onboarding_theme';
+const THEME_STORAGE_KEY = '@candid_onboarding_theme';
 
 const THEMES: Record<string, { background: string; text: string }> = {
   midnight:      { background: '#0C0904', text: '#F0E8D5' },
@@ -128,7 +128,7 @@ function buildSuggestions(category: string, firstName: string): string[] {
     ],
   };
 
-  return (map[category] ?? ['My Guestful Event', 'An Event to Remember']).slice(0, 5);
+  return (map[category] ?? ['My Candid Event', 'An Event to Remember']).slice(0, 5);
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ function Logo({ color }: { color: string }) {
   return (
     <View style={styles.logoRow}>
       <View style={[styles.logoDot, { backgroundColor: color }]} />
-      <Text style={[styles.logoText, { color }]}>Guestful Clicks</Text>
+      <Text style={[styles.logoText, { color }]}>CANDID Clicks</Text>
     </View>
   );
 }

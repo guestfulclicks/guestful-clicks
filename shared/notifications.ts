@@ -39,8 +39,8 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
   // Android requires a notification channel before any notification can fire.
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('guestful_default', {
-      name: 'Guestful Clicks',
+    await Notifications.setNotificationChannelAsync('candid_default', {
+      name: 'CANDID Clicks',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#D4A853',

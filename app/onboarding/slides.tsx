@@ -45,7 +45,7 @@ interface Slide {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const THEME_STORAGE_KEY = '@guestful_onboarding_theme';
+const THEME_STORAGE_KEY = '@candid_onboarding_theme';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FILM_H = 52;
 const HOLE_COUNT = 9;
@@ -67,7 +67,7 @@ const SLIDES: Slide[] = [
   },
   {
     id: 's2',
-    body: "Every guest gets to be a Guest-Full Clicker. Because if you were invited, you matter. If you showed up, you're part of the story. Guestful makes sure your perspective is never missing from the moments that matter most.",
+    body: "Every guest gets to be a CANDID Clicker. Because if you were invited, you matter. If you showed up, you're part of the story. CANDID Clicks makes sure your perspective is never missing from the moments that matter most.",
   },
   {
     id: 's3',
@@ -75,7 +75,7 @@ const SLIDES: Slide[] = [
   },
   {
     id: 's4',
-    heading: "Cheerful memories, made Guestful.",
+    heading: "Cheerful memories, made Candid.",
     body: 'Every angle.\nEvery guest.\nOne gallery.',
     isLast: true,
   },
@@ -107,7 +107,7 @@ function Logo({ color }: { color: string }) {
   return (
     <View style={styles.logoRow}>
       <View style={[styles.logoDot, { backgroundColor: color }]} />
-      <Text style={[styles.logoText, { color }]}>Guestful Clicks</Text>
+      <Text style={[styles.logoText, { color }]}>CANDID Clicks</Text>
     </View>
   );
 }
@@ -180,7 +180,7 @@ export default function OnboardingSlides() {
       {/* Content area between strips */}
       <View style={styles.slideContent}>
         <Text style={[styles.frameNumber, { fontFamily: mono }]}>
-          GUESTFUL — 0{index + 1}
+          CANDID — 0{index + 1}
         </Text>
 
         <View style={styles.slideMain}>
@@ -205,7 +205,7 @@ export default function OnboardingSlides() {
           )}
         </View>
 
-        <Text style={[styles.filmLabel, { fontFamily: mono }]}>GUESTFUL CLICKS</Text>
+        <Text style={[styles.filmLabel, { fontFamily: mono }]}>CANDID CLICKS</Text>
       </View>
 
       {/* Bottom film strip */}

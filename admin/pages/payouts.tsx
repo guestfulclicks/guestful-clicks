@@ -115,10 +115,10 @@ function generateStatement(row: PayoutRow, monthLabel: string) {
   doc.rect(0, 0, W, 38, 'F');
   doc.setTextColor(212, 168, 83);
   doc.setFontSize(18); doc.setFont('helvetica', 'bold');
-  doc.text('Guestful Clicks', L, 16);
+  doc.text('CANDID Clicks', L, 16);
   doc.setFontSize(9); doc.setFont('helvetica', 'normal');
   doc.setTextColor(180, 160, 120);
-  doc.text('123, Tech Park, Bangalore - 560001 | GST: 29XXXXX0000X1ZX | support@guestfulclicks.com', L, 25);
+  doc.text('123, Tech Park, Bangalore - 560001 | GST: 29XXXXX0000X1ZX | guest@candidclicks.life', L, 25);
   doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(212, 168, 83);
   doc.text('PAYOUT STATEMENT', L, 33);
 
@@ -169,7 +169,7 @@ function generateStatement(row: PayoutRow, monthLabel: string) {
 
   const sumRows: [string, string][] = [
     ['Gross Revenue',       fmtINR(row.gross_collected)],
-    [`Guestful Platform Share (${Math.round(PLAT_PCT * 100)}%)`, fmtINR(row.platform_share)],
+    [`Candid Platform Share (${Math.round(PLAT_PCT * 100)}%)`, fmtINR(row.platform_share)],
     [`Organiser Gross (${Math.round(ORG_PCT * 100)}%)`,          fmtINR(row.organiser_gross)],
     [`TDS Deducted (${Math.round(row.tds_rate * 100)}%)`,        fmtINR(row.tds_amount)],
     ['Net Payable',         fmtINR(row.net_payable)],
@@ -192,9 +192,9 @@ function generateStatement(row: PayoutRow, monthLabel: string) {
   doc.setTextColor(140, 130, 110); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
   doc.text('This is a computer generated statement.', L, y + 6);
   doc.text('TDS certificate will be issued quarterly as per statutory requirements.', L, y + 11);
-  doc.text('For queries: support@guestfulclicks.com', L, y + 16);
+  doc.text('For queries: guest@candidclicks.life', L, y + 16);
 
-  doc.save(`GuestfulClicks_Statement_${row.event_title.replace(/\s+/g,'_')}.pdf`);
+  doc.save(`CandidClicks_Statement_${row.event_title.replace(/\s+/g,'_')}.pdf`);
 }
 
 // ── Excel Export ──────────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ function exportExcel(rows: PayoutRow[], month: number, year: number) {
     'Event Date':            r.event_date,
     'Participants Count':    r.participants_count,
     'Gross Collected (INR)': Math.round(r.gross_collected),
-    'Guestful Share 75%':    Math.round(r.platform_share),
+    'Candid Share 75%':      Math.round(r.platform_share),
     'Organiser Gross 25%':   Math.round(r.organiser_gross),
     'TDS Rate (%)':          Math.round(r.tds_rate * 100),
     'TDS Amount (INR)':      Math.round(r.tds_amount),
@@ -228,7 +228,7 @@ function exportExcel(rows: PayoutRow[], month: number, year: number) {
   ws['!cols'] = Object.keys(data[0] || {}).map(() => ({ wch: 20 }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Payouts');
-  XLSX.writeFile(wb, `GuestfulClicks_Payouts_${MONTHS[month - 1]}_${year}.xlsx`);
+  XLSX.writeFile(wb, `CandidClicks_Payouts_${MONTHS[month - 1]}_${year}.xlsx`);
 }
 
 // ── Payment Modal ─────────────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ function HoldModal({ row, adminId, onClose, onHeld }: { row: PayoutRow; adminId:
       organiser_id: row.organiser_id,
       type: 'payout_held',
       title: '⏸ Payout On Hold',
-      message: `Your payout for ${row.event_title} is currently on hold. Reason: ${reason}. Contact support@guestfulclicks.com`,
+      message: `Your payout for ${row.event_title} is currently on hold. Reason: ${reason}. Contact guest@candidclicks.life`,
       is_read: false,
     });
     logAdminActivity(adminId, 'payout_held', 'payout', row.id, { organiser: row.organiser_name, reason });

@@ -24,7 +24,7 @@ import type { UserRole } from '../../shared/types';
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
-const THEME_STORAGE_KEY = '@guestful_onboarding_theme';
+const THEME_STORAGE_KEY = '@candid_onboarding_theme';
 
 const THEMES: Record<string, { background: string; text: string }> = {
   midnight:     { background: '#0C0904', text: '#F0E8D5' },
@@ -57,21 +57,24 @@ interface EventTypeOption {
 }
 
 const FALLBACK_HOST_TYPES: EventTypeOption[] = [
-  { key: 'wedding',     icon: '💒', title: 'Wedding & Reception' },
-  { key: 'birthday',    icon: '🎂', title: 'Birthday & Reunion' },
-  { key: 'bachelor',    icon: '💍', title: 'Bachelor · Bachelorette' },
-  { key: 'trip',        icon: '✈️', title: 'Group Trip & Retreat' },
-  { key: 'offsite',     icon: '🏢', title: 'Team Offsite' },
-  { key: 'celebration', icon: '🎉', title: 'Other Celebration' },
+  { key: 'Wedding & Reception',    icon: '💒', title: 'Wedding & Reception' },
+  { key: 'Birthday & Reunion',     icon: '🎂', title: 'Birthday & Reunion' },
+  { key: 'Bachelor · Bachelorette', icon: '💍', title: 'Bachelor · Bachelorette' },
+  { key: 'Group Trip & Retreat',   icon: '✈️', title: 'Group Trip & Retreat' },
+  { key: 'Team Offsite',           icon: '🏢', title: 'Team Offsite' },
+  { key: 'Baby Shower',            icon: '👶', title: 'Baby Shower' },
+  { key: 'Anniversary',            icon: '❤️', title: 'Anniversary' },
+  { key: 'Other Celebration',      icon: '🎉', title: 'Other Celebration' },
 ];
 
 const FALLBACK_ORGANISER_TYPES: EventTypeOption[] = [
-  { key: 'sports',    icon: '🏏', title: 'Sports Event' },
-  { key: 'music',     icon: '🎵', title: 'Music Festival & Concert' },
-  { key: 'cultural',  icon: '🎪', title: 'Cultural Festival' },
-  { key: 'corporate', icon: '🏢', title: 'Corporate Event' },
-  { key: 'college',   icon: '🎓', title: 'College & School Event' },
-  { key: 'public',    icon: '📢', title: 'Other Public Event' },
+  { key: 'Cricket Match',          icon: '🏏', title: 'Cricket Match' },
+  { key: 'Music Festival & Concert', icon: '🎵', title: 'Music Festival & Concert' },
+  { key: 'Cultural Festival',      icon: '🎪', title: 'Cultural Festival' },
+  { key: 'Corporate Event',        icon: '🏢', title: 'Corporate Event' },
+  { key: 'College & School Event', icon: '🎓', title: 'College & School Event' },
+  { key: 'Sports Event',           icon: '🏆', title: 'Sports Event' },
+  { key: 'Other Public Event',     icon: '📢', title: 'Other Public Event' },
 ];
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -80,7 +83,7 @@ function Logo({ color }: { color: string }) {
   return (
     <View style={styles.logoRow}>
       <View style={[styles.logoDot, { backgroundColor: color }]} />
-      <Text style={[styles.logoText, { color }]}>Guestful Clicks</Text>
+      <Text style={[styles.logoText, { color }]}>CANDID Clicks</Text>
     </View>
   );
 }

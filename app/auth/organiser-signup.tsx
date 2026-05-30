@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../supabase/client';
 import { runKYCVerification } from '../../shared/services/kyc-orchestrator';
 
-const DRAFT_KEY = '@guestful_kyc_draft';
+const DRAFT_KEY = '@candid_kyc_draft';
 const GOLD = '#D4A853';
 const BG = '#0C0904';
 const WW = '#F0E8D5';
@@ -626,7 +626,7 @@ export default function OrganiserSignup() {
         {/* Step 0: Who are you? */}
         {step === 0 && (
           <>
-            <Text style={styles.heading}>How will you use Guestful Clicks?</Text>
+            <Text style={styles.heading}>How will you use CANDID Clicks?</Text>
             <Text style={styles.subheading}>
               Choose your organiser type. This determines your pricing and features.
             </Text>

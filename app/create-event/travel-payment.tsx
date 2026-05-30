@@ -30,7 +30,7 @@ import { generateShareCode, buildJoinURL, buildWhatsAppMessage } from '../../sha
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
-const THEME_KEY = '@guestful_onboarding_theme';
+const THEME_KEY = '@candid_onboarding_theme';
 const THEMES: Record<string, { background: string; text: string }> = {
   midnight:      { background: '#0C0904', text: '#F0E8D5' },
   graphite:      { background: '#1A1A1A', text: '#FFFFFF'  },
@@ -64,7 +64,7 @@ function Logo({ color }: { color: string }) {
   return (
     <View style={s.logoRow}>
       <View style={[s.logoDot, { backgroundColor: color }]} />
-      <Text style={[s.logoText, { color }]}>Guestful Clicks</Text>
+      <Text style={[s.logoText, { color }]}>CANDID Clicks</Text>
     </View>
   );
 }
@@ -263,7 +263,7 @@ export default function TravelPaymentScreen() {
     }
     qrRef.current?.toDataURL(async (base64: string) => {
       try {
-        const fileUri = `${FileSystem.documentDirectory}guestful_qr_${shareCode}.png`;
+        const fileUri = `${FileSystem.documentDirectory}candid_qr_${shareCode}.png`;
         await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
         await MediaLibrary.saveToLibraryAsync(fileUri);
         Alert.alert('Saved!', 'QR code saved to your gallery.');
@@ -403,7 +403,7 @@ export default function TravelPaymentScreen() {
               <TouchableOpacity style={s.retryBtn} onPress={handlePay} activeOpacity={0.82}>
                 <Text style={[s.retryBtnText, { fontFamily: serifBold }]}>Try Again →</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => Linking.openURL('mailto:support@guestfulclicks.com')} activeOpacity={0.7}>
+              <TouchableOpacity onPress={() => Linking.openURL('mailto:guest@candidclicks.life')} activeOpacity={0.7}>
                 <Text style={[s.supportLink, { fontFamily: serif }]}>Contact support</Text>
               </TouchableOpacity>
             </View>

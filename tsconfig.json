@@ -3,5 +3,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "exclude": ["node_modules", ".expo", "admin"]
+  "exclude": ["node_modules", ".expo", "admin", "supabase/functions"]
 }

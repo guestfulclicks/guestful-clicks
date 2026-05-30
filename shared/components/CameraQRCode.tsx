@@ -75,7 +75,7 @@ export default function CameraQRCode({ value, shareCode, qrRef, size = 220 }: Pr
           <View style={{ width: Math.round(8 * scale), height: Math.round(8 * scale), borderWidth: 1.5, borderColor: GOLD }} />
           {/* Label */}
           <Text style={{ color: GOLD, fontSize: Math.max(7, Math.round(7 * scale)), letterSpacing: 0.8 }}>
-            GUESTFUL CLICKS
+            CANDID CLICKS
           </Text>
           {/* Shutter button */}
           <View style={{ width: Math.round(12 * scale), height: Math.round(12 * scale), borderRadius: Math.round(6 * scale), backgroundColor: GOLD }} />
@@ -119,7 +119,7 @@ export default function CameraQRCode({ value, shareCode, qrRef, size = 220 }: Pr
               }}
             >
               <QRCode
-                value={value || 'https://guestfulclicks.com'}
+                value={value || 'https://candidclicks.life'}
                 size={qrSize}
                 getRef={(c: any) => { if (qrRef) qrRef.current = c; }}
                 backgroundColor="#0A0806"

@@ -379,7 +379,7 @@ export default function AdminLayout({ children, pageTitle, breadcrumb }: AdminLa
         <div style={{ padding: '28px 24px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
             <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: GOLD, flexShrink: 0 }} />
-            <span style={{ fontFamily: SERIF, fontSize: '13px', fontWeight: '700', color: WW, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Guestful Clicks</span>
+            <span style={{ fontFamily: SERIF, fontSize: '13px', fontWeight: '700', color: WW, letterSpacing: '1.5px', textTransform: 'uppercase' }}>CANDID Clicks</span>
           </div>
           <div style={{ fontSize: '10px', color: GOLD, letterSpacing: '2px', textTransform: 'uppercase', paddingLeft: '15px' }}>Admin Panel</div>
         </div>

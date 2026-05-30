@@ -121,7 +121,7 @@ function Logo() {
   return (
     <View style={s.logoRow}>
       <View style={s.logoDot} />
-      <Text style={s.logoText}>GUESTFUL CLICKS</Text>
+      <Text style={s.logoText}>CANDID CLICKS</Text>
     </View>
   );
 }
@@ -451,7 +451,7 @@ export default function RevealScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem('@guestful_participant');
+        const raw = await AsyncStorage.getItem('@candid_participant');
         if (!raw) return;
         const p: ParticipantData = JSON.parse(raw);
         setParticipant(p);
@@ -752,13 +752,34 @@ export default function RevealScreen() {
     );
   }, [participant, event, hiddenPhotos]);
 
+  const deletePhoto = useCallback((photo: PhotoItem) => {
+    Alert.alert(
+      'Delete Photo',
+      'Permanently delete this photo for everyone?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setGalleryPhotos(prev => prev.filter(p => p.id !== photo.id));
+            await supabase
+              .from('photos')
+              .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+              .eq('id', photo.id);
+          },
+        },
+      ]
+    );
+  }, []);
+
   // ── Download helpers ──────────────────────────────────────────────────────
 
   const downloadPhoto = async (url: string) => {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') { Alert.alert('Permission needed', 'Allow gallery access to save photos.'); return; }
-      const fn = `guestful_${Date.now()}.jpg`;
+      const fn = `candid_${Date.now()}.jpg`;
       await FileSystem.downloadAsync(url, `${FileSystem.documentDirectory}${fn}`);
       await MediaLibrary.saveToLibraryAsync(`${FileSystem.documentDirectory}${fn}`);
       Alert.alert('Saved!', 'Photo saved to your gallery.');
@@ -776,7 +797,7 @@ export default function RevealScreen() {
     let saved = 0;
     for (const photo of all) {
       try {
-        const fn = `guestful_${Date.now()}.jpg`;
+        const fn = `candid_${Date.now()}.jpg`;
         await FileSystem.downloadAsync(photo.url, `${FileSystem.documentDirectory}${fn}`);
         await MediaLibrary.saveToLibraryAsync(`${FileSystem.documentDirectory}${fn}`);
         saved++;
@@ -796,7 +817,7 @@ export default function RevealScreen() {
     let saved = 0;
     for (const photo of toSave) {
       try {
-        const fn = `guestful_mem_${Date.now()}.jpg`;
+        const fn = `candid_mem_${Date.now()}.jpg`;
         await FileSystem.downloadAsync(photo.url, `${FileSystem.documentDirectory}${fn}`);
         await MediaLibrary.saveToLibraryAsync(`${FileSystem.documentDirectory}${fn}`);
         saved++;

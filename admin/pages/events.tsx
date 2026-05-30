@@ -151,7 +151,7 @@ async function exportPDF(rows: EventRow[]) {
   const drawPageHeader = () => {
     doc.setFillColor(12, 9, 4);          doc.rect(0, 0, W, 22, 'F');
     doc.setFontSize(15); doc.setTextColor(212, 168, 83);
-    doc.text('Guestful Clicks', SX, 10);
+    doc.text('CANDID Clicks', SX, 10);
     doc.setFontSize(9);  doc.setTextColor(200, 190, 170);
     doc.text('Event Management Report', SX, 17);
     doc.setTextColor(120, 120, 120);
@@ -204,7 +204,7 @@ async function exportPDF(rows: EventRow[]) {
   const np = doc.getNumberOfPages();
   for (let p = 1; p <= np; p++) {
     doc.setPage(p); doc.setFontSize(6.5); doc.setTextColor(150, 150, 150);
-    doc.text('Guestful Clicks — Confidential', SX, H - 5);
+    doc.text('CANDID Clicks — Confidential', SX, H - 5);
     doc.text(`Page ${p} of ${np}`, W - SX, H - 5, { align: 'right' });
   }
   doc.save(`events_report_${todayISO()}.pdf`);
@@ -548,9 +548,9 @@ function EventDetailPanel({ ev, detail, detailLoading, onClose, onRefresh }: {
                   <div style={sh}>Join URL</div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#F5F3EF', borderRadius: '6px', padding: '10px 12px' }}>
                     <code style={{ flex: 1, fontSize: '11px', color: '#555', fontFamily: MONO, wordBreak: 'break-all' }}>
-                      https://join.guestfulclicks.com/guest/join?code={ev.share_code}
+                      https://join.candidclicks.life/guest/join?code={ev.share_code}
                     </code>
-                    <Btn size="sm" onClick={() => copy(`https://join.guestfulclicks.com/guest/join?code=${ev.share_code}`)}>Copy</Btn>
+                    <Btn size="sm" onClick={() => copy(`https://join.candidclicks.life/guest/join?code=${ev.share_code}`)}>Copy</Btn>
                   </div>
                 </div>
               )}

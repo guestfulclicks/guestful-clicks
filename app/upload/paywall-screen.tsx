@@ -36,7 +36,7 @@ const MUTED   = 'rgba(240,232,213,0.50)';
 const BORDER  = 'rgba(255,255,255,0.15)';
 const RED     = '#FF5252';
 const H_PAD   = 24;
-const PART_KEY = '@guestful_participant';
+const PART_KEY = '@candid_participant';
 
 // Tier descriptions shown under each card
 const TIER_DESCRIPTIONS: Record<number, string> = {
@@ -93,7 +93,7 @@ function Logo() {
   return (
     <View style={sc.logoRow}>
       <View style={sc.logoDot} />
-      <Text style={sc.logoText}>GUESTFUL CLICKS</Text>
+      <Text style={sc.logoText}>CANDID CLICKS</Text>
     </View>
   );
 }
@@ -514,7 +514,7 @@ export default function PaywallScreen() {
               <Text style={[sc.retryBtnText, { fontFamily: serifBold }]}>Try Again →</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => Linking.openURL('mailto:support@guestfulclicks.com')}
+              onPress={() => Linking.openURL('mailto:guest@candidclicks.life')}
               activeOpacity={0.7}
             >
               <Text style={[sc.supportLink, { fontFamily: serif }]}>Contact support</Text>
